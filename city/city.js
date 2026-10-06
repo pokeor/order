@@ -634,7 +634,7 @@ const VIEWS = {
   tower:    { t: [0, 22, 0],  off: [0, 20, 82] }
 };
 const aspect = () => innerWidth / innerHeight;
-const aspectScale = () => { const a = aspect(); return a < 1 ? Math.min(2.7, Math.pow(1 / a, 0.9)) : 1; };
+const aspectScale = () => { const a = aspect(); return a < 1 ? Math.min(3.3, Math.pow(1 / a, 1.1)) : 1; };
 let tween = null;
 function flyTo(target, pos, ms = 1000) {
   if (REDUCE) ms = 1;
