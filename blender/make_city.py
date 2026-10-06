@@ -231,6 +231,7 @@ def finish(name, ox):
     objs = []
     for key, bm in bms.items():
         if not bm.verts: bm.free(); continue
+        if key.startswith('Ball'): bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
         if key in ('Wall', 'WallShade', 'Trim', 'Roof', 'Base', 'Frame', 'Accent', 'Wood', 'Gold'):
             try: bmesh.ops.bevel(bm, geom=bm.edges[:], offset=0.06, segments=1, profile=0.5, affect='EDGES')

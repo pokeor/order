@@ -46,6 +46,19 @@
   .sheet-title{font-family:'Secular One','Rubik',sans-serif;font-weight:400;font-size:1.2rem;line-height:1.25;margin:0}
   .sheet-sub{color:var(--ink-soft);font-size:.8rem;margin-top:4px;line-height:1.5}
   .sheet-sub b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .prices{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .price{background:var(--accent);color:var(--accent-ink);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;line-height:1.15}
+  .price span{font-size:.72rem;font-weight:600;opacity:.8}
+  .price b{font-family:'Secular One','Rubik',sans-serif;font-weight:400;font-size:1.55rem;font-variant-numeric:tabular-nums}
+  .price.alt{background:transparent;border:2px solid var(--accent);color:var(--ink)}
+  .price.alt span{color:var(--accent);opacity:1}
+  #mini{position:fixed;inset-inline-end:12px;bottom:calc(14px + env(safe-area-inset-bottom));width:132px;height:132px;border-radius:50%;border:2px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer;z-index:4;touch-action:none}
+  @media (max-width:760px){#mini{width:104px;height:104px;bottom:calc(84px + env(safe-area-inset-bottom))}}
+  #joy{position:fixed;inset-inline-end:18px;bottom:calc(160px + env(safe-area-inset-bottom));width:116px;height:116px;border-radius:50%;background:rgba(20,32,27,.55);border:2px solid var(--line);backdrop-filter:blur(4px);z-index:4;touch-action:none;display:none;align-items:center;justify-content:center}
+  #joy i{width:52px;height:52px;border-radius:50%;background:rgba(63,190,151,.85);box-shadow:0 4px 14px rgba(0,0,0,.5);transition:transform .05s}
+  @media (pointer:coarse){body.walk #joy{display:flex}}
+  #tip{position:fixed;z-index:6;pointer-events:none;background:rgba(10,20,16,.92);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:12px;font-size:.82rem;line-height:1.4;display:none;max-width:260px}
+  #tip b{font-family:'Secular One','Rubik',sans-serif;font-weight:400;color:var(--gold);font-size:1rem}
   .close{margin-inline-start:auto;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;flex:none}
   .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .lbl{font-size:.86rem;color:var(--ink-soft)}
@@ -105,6 +118,7 @@
     <button class="chip" data-view="preorder" aria-pressed="false">דלתא ריין · הזמנה מוקדמת</button>
     <button class="chip" data-view="instock" aria-pressed="false">זמין במלאי</button>
     <button class="chip" data-view="tower" aria-pressed="false">מגדל ההזמנות</button>
+    <button class="chip" id="walk-btn" aria-pressed="false">🚶 טיול ברחוב</button>
   </div>
 </div>
 
@@ -112,6 +126,9 @@
 
 <button id="cart-fab" aria-label="פתח עגלה"><span>🛒 עגלה</span><span class="n" id="cart-n">0</span><span class="t" id="cart-t">0 ₪</span></button>
 
+<div id="tip"></div>
+<canvas id="mini" width="260" height="260" aria-label="מפת העיר"></canvas>
+<div id="joy" aria-hidden="true"><i></i></div>
 <section class="sheet" id="shop" hidden></section>
 <section class="sheet" id="checkout" hidden></section>
 

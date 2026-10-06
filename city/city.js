@@ -328,21 +328,36 @@ function makeSign(p) {
     const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0f1b16'); bg.addColorStop(1, '#14261e');
     g.fillStyle = bg; roundRect(g, 0, 0, W, H, 36); g.fill();
     g.strokeStyle = p.accent; g.lineWidth = 9; roundRect(g, 7, 7, W - 14, H - 14, 30); g.stroke();
-    const fr = g.createRadialGradient(170, 200, 20, 170, 200, 220); fr.addColorStop(0, 'rgba(255,255,255,.16)'); fr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = '#1a2b23'; roundRect(g, 30, 30, 280, 340, 22); g.fill(); g.fillStyle = fr; g.fillRect(30, 30, 280, 340);
-    if (img) { const s = Math.min(250 / img.width, 310 / img.height), w = img.width * s, h = img.height * s; g.drawImage(img, 30 + (280 - w) / 2, 30 + (340 - h) / 2, w, h); }
-    g.direction = 'rtl'; g.textAlign = 'right'; g.textBaseline = 'alphabetic';
-    g.fillStyle = '#ffffff'; g.font = `400 58px ${FONT_D}`;
-    const lines = wrapLines(g, p.name, 430); if (lines.length > 3) lines.length = 3;
-    lines.forEach((l, i) => g.fillText(l, W - 36, 88 + i * 66));
-    g.fillStyle = p.accent; roundRect(g, 340, H - 112, W - 340 - 34, 76, 38); g.fill();
-    g.fillStyle = '#0a1410'; g.textAlign = 'center'; g.font = `600 30px ${FONT_B}`; g.fillText('החל מ-', 340 + (W - 374) * 0.78, H - 62);
-    g.font = `400 54px ${FONT_D}`; g.fillText(fmt(p.unitPrice) + ' ₪', 340 + (W - 374) * 0.34, H - 55);
+    const fr = g.createRadialGradient(165, 200, 20, 165, 200, 220); fr.addColorStop(0, 'rgba(255,255,255,.16)'); fr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = '#1a2b23'; roundRect(g, 28, 28, 262, 344, 22); g.fill(); g.fillStyle = fr; g.fillRect(28, 28, 262, 344);
+    if (img) { const s = Math.min(236 / img.width, 316 / img.height), w = img.width * s, h = img.height * s; g.drawImage(img, 28 + (262 - w) / 2, 28 + (344 - h) / 2, w, h); }
+    g.direction = 'rtl'; g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = '#ffffff';
+    let size = 52, lines; do { g.font = `400 ${size}px ${FONT_D}`; lines = wrapLines(g, p.name, 440); size -= 4; } while (lines.length > 2 && size > 30);
+    lines.slice(0, 3).forEach((l, i) => g.fillText(l, W - 34, 84 + i * (size + 14)));
+    // price bar: unit (filled) + case (outlined)
+    g.textAlign = 'center';
+    g.fillStyle = p.accent; roundRect(g, 546, H - 156, 220, 124, 26); g.fill();
+    g.fillStyle = '#0a1410'; g.font = `600 27px ${FONT_B}`; g.fillText('יחידה', 656, H - 122);
+    g.font = `400 62px ${FONT_D}`; g.fillText(fmt(p.unitPrice) + ' ₪', 656, H - 58);
+    g.fillStyle = '#0f1b16'; roundRect(g, 318, H - 156, 216, 124, 26); g.fill();
+    g.strokeStyle = p.accent; g.lineWidth = 5; roundRect(g, 320, H - 154, 212, 120, 24); g.stroke();
+    g.fillStyle = p.accent; g.font = `600 25px ${FONT_B}`; g.fillText('קייס · ' + p.caseQty + ' יח׳', 426, H - 124);
+    g.fillStyle = '#ffffff'; g.font = `400 50px ${FONT_D}`; g.fillText(fmt(p.casePrice) + ' ₪', 426, H - 64);
     tex.needsUpdate = true;
   };
   draw();
   const im = new Image(); im.onload = () => { img = im; draw(); }; im.src = '../' + p.image;
   return tex;
+}
+function makePriceTag(p) {
+  const c = document.createElement('canvas'); c.width = 360; c.height = 170; const g = c.getContext('2d');
+  g.fillStyle = '#0a1410'; roundRect(g, 4, 4, 352, 162, 40); g.fill();
+  g.fillStyle = p.accent; roundRect(g, 10, 10, 340, 150, 34); g.fill();
+  g.fillStyle = '#0a1410'; g.direction = 'rtl'; g.textAlign = 'center';
+  g.font = `600 30px ${FONT_B}`; g.fillText('החל מ־', 180, 52);
+  g.font = `400 88px ${FONT_D}`; g.fillText(fmt(p.unitPrice) + ' ₪', 180, 136);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, toneMapped: false })); sp.scale.set(7.4, 3.5, 1); noRay(sp); return sp;
 }
 function makeBadge() {
   const c = document.createElement('canvas'); c.width = c.height = 128; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
@@ -447,6 +462,7 @@ function makeForecourt(def, T) {
     const t = new THREE.Texture(im); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; t.anisotropy = 4; panelMat.map = t; panelMat.emissiveMap = t; panelMat.needsUpdate = true;
     panel.scale.x = Math.min(1.5, (4.3 * (im.width / im.height)) / 3.4);
   }; im.src = '../' + def.image;
+  put(disp, makePriceTag(def), 0, 0.84 + 4.3 + 2.4, 0);
   g.add(disp); g.userData.disp = disp;
   const px = (dx > 0 ? -1 : 1) * (pw / 2 - 1.6);
   for (const sx of [px, px * 0.2]) {
@@ -480,7 +496,7 @@ function makeBuilding(def) {
   if (manifest[def.building]) {
     gltfLoader.loadAsync('./models/' + manifest[def.building]).then(gl => {
       const m = gl.scene; shadowify(m); root.remove(proc); root.add(m);
-      m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); } });
+      m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); else if (mt.name.startsWith('Ball')) { o.receiveShadow = false; o.material.envMapIntensity = 0.6; } } });
       const a = m.getObjectByName('SignAnchor'); if (a) sign.position.copy(a.position);
     }).catch(err => console.warn('GLB load failed for', def.building, err));
   }
@@ -535,24 +551,115 @@ function makeGate(angleDeg, ahead) { // ahead[0]: district when travelling +angl
 makeGate(108, ['preorder', 'instock']);
 makeGate(252, ['instock', 'preorder']);
 
-/* ---------- skyline filler (instanced) ---------- */
+/* ---------- living surroundings ---------- */
+const animators = [];
+function neonTexture(text, sub, col) {
+  const c = document.createElement('canvas'); c.width = 768; c.height = 360; const g = c.getContext('2d');
+  g.fillStyle = '#070b12'; roundRect(g, 0, 0, 768, 360, 30); g.fill();
+  g.strokeStyle = col; g.lineWidth = 12; g.shadowColor = col; g.shadowBlur = 26; roundRect(g, 14, 14, 740, 332, 24); g.stroke();
+  g.direction = 'rtl'; g.textAlign = 'center'; g.fillStyle = '#fff'; g.shadowBlur = 34; g.font = `400 112px ${FONT_D}`; g.fillText(text, 384, 190);
+  g.shadowBlur = 16; g.fillStyle = col; g.font = `600 46px ${FONT_B}`; g.fillText(sub, 384, 270);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const skySpots = [];
 {
   const classes = [{ w: 18, d: 18, h: 22 }, { w: 26, d: 16, h: 14 }, { w: 16, d: 16, h: 34 }, { w: 22, d: 22, h: 26 }];
-  const set = windowSet('#8b919b', 'sky'), mat = new THREE.MeshStandardMaterial({
-    map: new THREE.CanvasTexture(set.wall), emissiveMap: new THREE.CanvasTexture(set.em), emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.9
-  });
-  for (const t of [mat.map, mat.emissiveMap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; }
-  const per = Math.ceil(Q.sky / classes.length), tints = [0x8c7f72, 0x76808c, 0x8f7568, 0x6f857a, 0x80728c], taken = [];
+  const set = windowSet('#8b919b', 'sky'), tints = [0xc2b3a2, 0xa5b2c4, 0xc9a898, 0x9fbcae, 0xb5a4c8], taken = [];
+  const mkMat = () => {
+    const m = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(set.wall), emissiveMap: new THREE.CanvasTexture(set.em), emissive: 0xffffff, emissiveIntensity: 1.25, roughness: 0.9 });
+    for (const t of [m.map, m.emissiveMap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; } return m;
+  };
+  const per = Math.ceil(Q.sky / classes.length), mats = [];
   classes.forEach(c => {
     const geo = new THREE.BoxGeometry(c.w, c.h, c.d), uv = geo.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (Math.max(c.w, c.d) / 13.6), uv.getY(i) * (c.h / 14.4));
-    const mesh = new THREE.InstancedMesh(geo, mat, per); let placed = 0, guard = 0;
+    const meshes = [0, 1].map(() => { const mt = mkMat(); mats.push(mt); return { m: new THREE.InstancedMesh(geo, mt, Math.ceil(per / 2)), n: 0 }; });
+    let placed = 0, guard = 0;
     while (placed < per && guard++ < 900) {
       const a = rnd() * Math.PI * 2, r = 165 + rnd() * 140, p = polar(r, a);
-      if (taken.some(s => Math.hypot(s.x - p.x, s.z - p.z) < 42)) continue;
-      taken.push(p); qt.setFromAxisAngle(Y, rnd() * 3); v3.set(p.x, c.h / 2, p.z); m4.compose(v3, qt, sc3); mesh.setMatrixAt(placed, m4); mesh.setColorAt(placed, new THREE.Color(pick(tints))); placed++;
+      if (taken.some(t => Math.hypot(t.x - p.x, t.z - p.z) < 42)) continue;
+      taken.push(p); const mm = meshes[placed % 2];
+      qt.setFromAxisAngle(Y, rnd() * 3); v3.set(p.x, c.h / 2, p.z); m4.compose(v3, qt, sc3); mm.m.setMatrixAt(mm.n, m4); mm.m.setColorAt(mm.n, new THREE.Color(pick(tints))); mm.n++;
+      skySpots.push({ x: p.x, z: p.z, h: c.h, r }); placed++;
     }
-    mesh.count = placed; mesh.castShadow = HI; mesh.receiveShadow = true; noRay(mesh); scene.add(mesh);
+    meshes.forEach(mm => { mm.m.count = mm.n; mm.m.castShadow = HI; mm.m.receiveShadow = true; noRay(mm.m); scene.add(mm.m); });
+  });
+  // twinkling windows: each material shifts its lit pattern on its own clock
+  mats.forEach((mt, i) => { let next = 1000 + i * 380; animators.push(now => { if (now > next) { next = now + 1400 + Math.random() * 1800; const dx = (Math.floor(Math.random() * 4) * 0.25), dy = (Math.floor(Math.random() * 4) * 0.25); mt.map.offset.set(dx, dy); mt.emissiveMap.offset.set(dx, dy); } }); });
+  // rooftop beacons, two groups blinking out of phase
+  const tall = skySpots.filter(s2 => s2.h >= 26), beaconGeo = new THREE.SphereGeometry(1.0, 10, 8);
+  const groups = [0, 1].map(k => { const sub = tall.filter((_, i) => i % 2 === k); const m = new THREE.InstancedMesh(beaconGeo, basic(0xff3b3b, { toneMapped: false }), Math.max(1, sub.length));
+    sub.forEach((t, i) => { m4.makeTranslation(t.x, t.h + 1.2, t.z); m.setMatrixAt(i, m4); }); m.count = sub.length; noRay(m); scene.add(m); return m; });
+  animators.push(now => { const ph = Math.floor(now / 900) % 2; groups[0].visible = ph === 0; groups[1].visible = ph === 1; });
+  // rooftop neon billboards facing the centre
+  const SIGNS = [['פוקימון TCG', 'מלאי · בוסטרים · קלפים', '#37e8ff'], ['הזמנות מוקדמות', 'דלתא ריין עכשיו', '#ff4fd8'], ['מלאי חדש!', 'ETB · בוקסים', '#ffd23a'], ['דלתא ריין', 'הגעה 6.11', '#7dff6a'], ['אספנות', 'קלפי פוקימון', '#ff8a3a']];
+  const picks = skySpots.filter(s2 => s2.r < 250).sort(() => rnd() - 0.5).slice(0, HI ? 12 : 6), neon = [];
+  picks.forEach((sp, i) => {
+    const [t1, t2, col] = SIGNS[i % SIGNS.length], g = new THREE.Group(); g.position.set(sp.x, sp.h, sp.z);
+    g.rotation.y = Math.atan2(-sp.x, -sp.z);
+    const mt = new THREE.MeshBasicMaterial({ map: neonTexture(t1, t2, col), toneMapped: false });
+    put(g, new THREE.Mesh(new THREE.PlaneGeometry(15, 7), mt), 0, 8.6, 0);
+    for (const sx of [-1, 1]) put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5.2, 6), std(0x30363a)), sx * 6, 2.6, -0.1);
+    noRay(g); g.traverse(noRay); scene.add(g); neon.push(mt);
+  });
+  animators.push(now => neon.forEach((mt, i) => { const f = 0.8 + 0.2 * Math.sin(now * 0.004 + i * 1.7) + (Math.sin(now * 0.021 + i) > 0.97 ? -0.4 : 0); mt.color.setScalar(clamp(f, 0.3, 1.1)); }));
+}
+
+/* outer ring road with distant traffic */
+{
+  ring(131, 139, std(0xffffff, { map: noiseTexture('#2a2d33', 40, 256, 18), roughness: 0.9 }), 0.03);
+  const N = HI ? 30 : 14, cars = [];
+  for (let i = 0; i < N; i++) cars.push({ a: rnd() * Math.PI * 2, sp: (0.05 + rnd() * 0.05) * (i % 2 ? 1 : -1), r: i % 2 ? 133.5 : 136.5 });
+  const body = new THREE.InstancedMesh(new THREE.BoxGeometry(3.6, 1.3, 1.7), std(0xffffff, { roughness: 0.4, metalness: 0.3 }), N);
+  const lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.4, 1.3), basic(0xfff1c8, { toneMapped: false }), N);
+  const tail = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 1.3), basic(0xff3030, { toneMapped: false }), N);
+  cars.forEach((c, i) => body.setColorAt(i, new THREE.Color(pick([0xd94a4a, 0x4a7fd9, 0xe8b84a, 0xf2f2ee, 0x3fbe97, 0x9a5ad9, 0x2f3a36]))));
+  for (const m of [body, lamp, tail]) { noRay(m); scene.add(m); } body.castShadow = HI;
+  const dummy = new THREE.Object3D();
+  animators.push((now, dt) => cars.forEach((c, i) => {
+    c.a += c.sp * dt; const p = polar(c.r, c.a), hd = -(c.a + (c.sp > 0 ? Math.PI / 2 : -Math.PI / 2));
+    dummy.position.set(p.x, 0.9, p.z); dummy.rotation.set(0, hd, 0); dummy.updateMatrix(); body.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(p.x + Math.cos(hd) * 1.8, 0.95, p.z - Math.sin(hd) * 1.8); dummy.updateMatrix(); lamp.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(p.x - Math.cos(hd) * 1.8, 0.95, p.z + Math.sin(hd) * 1.8); dummy.updateMatrix(); tail.setMatrixAt(i, dummy.matrix);
+    if (i === cars.length - 1) { body.instanceMatrix.needsUpdate = lamp.instanceMatrix.needsUpdate = tail.instanceMatrix.needsUpdate = true; }
+  }));
+}
+
+/* blimp with a banner, circling the city */
+{
+  const blimp = new THREE.Group(), R = 1;
+  const bc = document.createElement('canvas'); bc.width = 256; bc.height = 128; const bg = bc.getContext('2d');
+  bg.fillStyle = '#e53b32'; bg.fillRect(0, 0, 256, 56); bg.fillStyle = '#151515'; bg.fillRect(0, 56, 256, 16); bg.fillStyle = '#f6f6f2'; bg.fillRect(0, 72, 256, 56);
+  const bt = new THREE.CanvasTexture(bc); bt.colorSpace = THREE.SRGBColorSpace; bt.wrapS = THREE.RepeatWrapping; bt.repeat.set(2, 1);
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 20), std(0xffffff, { map: bt, roughness: 0.5 })); hull.scale.set(15, 5.6, 5.6); blimp.add(hull);
+  put(blimp, new THREE.Mesh(new THREE.BoxGeometry(5, 1.6, 2.2), std(0x30363a)), 0, -6.6, 0);
+  for (const [rz, ry] of [[0, 0], [Math.PI / 2, 0], [Math.PI / 4, 0], [-Math.PI / 4, 0]]) { const f = put(blimp, new THREE.Mesh(new THREE.BoxGeometry(5, 0.3, 4.4), std(0xd23a32)), -14, 0, 0); f.rotation.x = rz; }
+  const ban = document.createElement('canvas'); ban.width = 1024; ban.height = 200; const bgx = ban.getContext('2d');
+  bgx.fillStyle = '#0f1b16'; roundRect(bgx, 0, 0, 1024, 200, 30); bgx.fill(); bgx.strokeStyle = '#e8b84a'; bgx.lineWidth = 10; roundRect(bgx, 8, 8, 1008, 184, 24); bgx.stroke();
+  bgx.direction = 'rtl'; bgx.textAlign = 'center'; bgx.fillStyle = '#fff'; bgx.font = `400 92px ${FONT_D}`; bgx.fillText('הזמנות מוקדמות פתוחות!', 512, 128);
+  const bnt = new THREE.CanvasTexture(ban); bnt.colorSpace = THREE.SRGBColorSpace; bnt.anisotropy = 4;
+  const bm = new THREE.MeshBasicMaterial({ map: bnt, side: THREE.DoubleSide, toneMapped: false });
+  put(blimp, new THREE.Mesh(new THREE.PlaneGeometry(32, 6.2), bm), -34, -1, 0);
+  noRay(blimp); blimp.traverse(noRay); scene.add(blimp);
+  animators.push(now => { const th = now * 0.00005, r = 152, p = polar(r, th); blimp.position.set(p.x, 88 + Math.sin(now * 0.0004) * 3, p.z); blimp.rotation.y = -(th + Math.PI / 2); });
+}
+
+/* birds */
+{
+  const N = HI ? 34 : 14, wingGeo = new THREE.BoxGeometry(0.9, 0.05, 0.38);
+  const L = new THREE.InstancedMesh(wingGeo, basic(0x20252b), N), Rr = new THREE.InstancedMesh(wingGeo, basic(0x20252b), N);
+  const birds = Array.from({ length: N }, () => ({ r: 25 + rnd() * 95, h: 22 + rnd() * 50, sp: (0.12 + rnd() * 0.25) * (rnd() < 0.5 ? 1 : -1), a: rnd() * 6.28, f: 6 + rnd() * 4, ph: rnd() * 6 }));
+  noRay(L); noRay(Rr); scene.add(L, Rr);
+  const dummy = new THREE.Object3D();
+  animators.push((now, dt) => {
+    birds.forEach((b, i) => {
+      b.a += b.sp * dt; const p = polar(b.r, b.a), hd = -(b.a + (b.sp > 0 ? Math.PI / 2 : -Math.PI / 2)), fl = Math.sin(now * 0.001 * b.f + b.ph) * 0.7;
+      for (const [mesh, side] of [[L, -1], [Rr, 1]]) {
+        dummy.position.set(p.x, b.h + Math.sin(now * 0.0007 + b.ph) * 2, p.z); dummy.rotation.set(0, hd, side * fl, 'YXZ'); dummy.updateMatrix();
+        dummy.matrix.multiply(new THREE.Matrix4().makeTranslation(side * 0.45, 0, 0)); mesh.setMatrixAt(i, dummy.matrix);
+      }
+    });
+    L.instanceMatrix.needsUpdate = Rr.instanceMatrix.needsUpdate = true;
   });
 }
 
@@ -733,16 +840,17 @@ const VIEWS = {
   tower:    () => ({ t: new THREE.Vector3(0, 20, 0), off: new THREE.Vector3(0, 22, 88) })
 };
 const aspectScale = () => { const a = innerWidth / innerHeight; return a < 1 ? Math.min(2.6, Math.pow(1 / a, 0.85)) : 1; };
+const walk = { on: false, yaw: 0, pitch: -0.04, pos: new THREE.Vector3(), keys: {}, joy: { x: 0, y: 0 }, goto: null, bob: 0 };
 let tween = null;
-function flyTo(target, pos, ms = 1000) {
+function flyTo(target, pos, ms = 1000, onDone = null) {
   if (REDUCE) ms = 1;
-  tween = { t0: performance.now(), ms, fromT: controls.target.clone(), fromP: camera.position.clone(), toT: target.clone(), toP: pos.clone() }; controls.enabled = false;
+  tween = { t0: performance.now(), ms, fromT: controls.target.clone(), fromP: camera.position.clone(), toT: target.clone(), toP: pos.clone(), onDone }; controls.enabled = false;
 }
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 function setChips(name) { document.querySelectorAll('#views .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.view === name))); }
-function flyToView(name, ms) { const v = VIEWS[name](), k = aspectScale(); flyTo(v.t, v.t.clone().add(v.off.clone().multiplyScalar(k)), ms); setChips(name); }
+function flyToView(name, ms) { leaveWalk(); const v = VIEWS[name](), k = aspectScale(); flyTo(v.t, v.t.clone().add(v.off.clone().multiplyScalar(k)), ms); setChips(name); }
 function flyToBuilding(pid) {
-  const b = buildings[pid], k = Math.min(1.7, aspectScale()), t = b.position.clone().addScaledVector(b.userData.dirIn, -10); t.y = 3;
+  leaveWalk(); const b = buildings[pid], k = Math.min(1.7, aspectScale()), t = b.position.clone().addScaledVector(b.userData.dirIn, -10); t.y = 3;
   const tang = new THREE.Vector3(-b.userData.dirIn.z, 0, b.userData.dirIn.x);
   const wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
   const dg = [deg(108), deg(252)].map(g => wrap(g - b.userData.angle)).sort((p, q) => Math.abs(p) - Math.abs(q))[0];
@@ -756,48 +864,133 @@ function resize() {
 addEventListener('resize', resize); resize();
 { const k = aspectScale(); camera.position.set(0, 520 * k, 640 * k); controls.target.set(0, 0, 0); controls.update(); flyToView('overview', 2800); }
 
+/* ---------- walk mode (street level) ---------- */
+const WALK_R = [22, 83], EYE = 2.9;
+const clampRing = v => { const r = Math.hypot(v.x, v.z), c = clamp(r, WALK_R[0], WALK_R[1]); if (r > 0.001 && c !== r) { v.x *= c / r; v.z *= c / r; } return v; };
+function setWalkUI(on) { document.body.classList.toggle('walk', on); $('walk-btn').textContent = on ? '🛰 מבט על' : '🚶 טיול ברחוב'; $('walk-btn').setAttribute('aria-pressed', String(on)); }
+function enterWalk(at) {
+  if (walk.on) return; closeCheckout();
+  const a = at ? Math.atan2(at.z, at.x) : Math.atan2(camera.position.z, camera.position.x);
+  const p = at ? clampRing(at.clone()) : polar(66, a); p.y = EYE;
+  const yaw = Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI * 0.0 + (at ? 0 : Math.PI * 0.5);
+  const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  walk.pos.copy(p); walk.yaw = yaw; walk.pitch = -0.04; walk.goto = null;
+  setChips(null); setWalkUI(true);
+  flyTo(p.clone().addScaledVector(fwd, 10).setY(EYE - 0.4), p, 1100, () => { walk.on = true; controls.enabled = false; camera.fov = 62; camera.updateProjectionMatrix(); $('hint').textContent = 'WASD / חצים לתנועה · גרירה להסתכלות · לחיצה על הרצפה כדי ללכת · לחיצה על חנות כדי להזמין'; $('hint').classList.remove('gone'); });
+}
+function leaveWalk() {
+  if (!walk.on && !document.body.classList.contains('walk')) return;
+  const fwd = new THREE.Vector3(-Math.sin(walk.yaw), 0, -Math.cos(walk.yaw));
+  const wasOn = walk.on; walk.on = false; walk.goto = null; setWalkUI(false);
+  camera.fov = 46; camera.updateProjectionMatrix();
+  if (wasOn) { controls.target.copy(walk.pos).addScaledVector(fwd, 14).setY(0); controls.enabled = true; controls.update(); }
+  $('hint').textContent = 'גררו כדי להסתובב · צבטו לזום · לחצו על בניין כדי להזמין';
+}
+$('walk-btn').addEventListener('click', () => { if (document.body.classList.contains('walk')) { const fwd = new THREE.Vector3(-Math.sin(walk.yaw), 0, -Math.cos(walk.yaw)); const t = walk.pos.clone().addScaledVector(fwd, 16).setY(0); leaveWalk(); flyTo(t, t.clone().add(new THREE.Vector3(0, 42, 44)), 1000); } else enterWalk(); });
+addEventListener('keydown', e => { if (!walk.on) return; const k = e.key.toLowerCase(); if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { walk.keys[k] = true; walk.goto = null; if (k.startsWith('arrow')) e.preventDefault(); } });
+addEventListener('keyup', e => { delete walk.keys[e.key.toLowerCase()]; });
+{ // joystick
+  const joy = $('joy'), knob = joy.firstElementChild; let id = null;
+  const set = e => { const r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2; let dx = (e.clientX - cx) / (r.width / 2), dy = (e.clientY - cy) / (r.height / 2); const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } walk.joy.x = dx; walk.joy.y = -dy; walk.goto = null; knob.style.transform = `translate(${dx * 34}px,${dy * 34}px)`; };
+  joy.addEventListener('pointerdown', e => { id = e.pointerId; joy.setPointerCapture(id); set(e); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === id) set(e); });
+  const end = e => { if (e.pointerId === id) { id = null; walk.joy.x = walk.joy.y = 0; knob.style.transform = ''; } };
+  joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
+}
+function updateWalk(dt, now) {
+  const k = walk.keys; let f = (k.w || k.arrowup ? 1 : 0) - (k.s || k.arrowdown ? 1 : 0) + walk.joy.y, st = (k.d ? 1 : 0) - (k.a ? 1 : 0) + walk.joy.x;
+  if (k.arrowleft) walk.yaw += 1.7 * dt; if (k.arrowright) walk.yaw -= 1.7 * dt;
+  const fw = new THREE.Vector3(-Math.sin(walk.yaw), 0, -Math.cos(walk.yaw)), rt = new THREE.Vector3(Math.cos(walk.yaw), 0, -Math.sin(walk.yaw));
+  let moving = false, speed = (k.shift ? 30 : 15);
+  if (walk.goto) {
+    const dx = walk.goto.x - walk.pos.x, dz = walk.goto.z - walk.pos.z, d = Math.hypot(dx, dz);
+    if (d < 0.6) walk.goto = null; else { const step = Math.min(d, speed * dt); walk.pos.x += dx / d * step; walk.pos.z += dz / d * step; const th = Math.atan2(-dx, -dz); walk.yaw += Math.atan2(Math.sin(th - walk.yaw), Math.cos(th - walk.yaw)) * Math.min(1, dt * 4); moving = true; }
+  }
+  if (f || st) { const m = Math.hypot(f, st) > 1 ? Math.hypot(f, st) : 1; walk.pos.addScaledVector(fw, f / m * speed * dt).addScaledVector(rt, st / m * speed * dt); moving = true; }
+  clampRing(walk.pos); if (moving) walk.bob += dt * 9;
+  camera.position.set(walk.pos.x, EYE + Math.sin(walk.bob) * (moving ? 0.07 : 0), walk.pos.z);
+  camera.rotation.set(walk.pitch, walk.yaw, 0, 'YXZ');
+}
+
+/* ---------- minimap ---------- */
+const mini = $('mini'), mg = mini.getContext('2d'), MINI_R = 112;
+const mw = (x, z) => { const s = mini.width / 2 - 10, k = s / MINI_R; return [mini.width / 2 + x * k, mini.height / 2 + z * k]; };
+const mUn = (px, py) => { const s = mini.width / 2 - 10, k = s / MINI_R; return new THREE.Vector3((px - mini.width / 2) / k, 0, (py - mini.height / 2) / k); };
+let miniAt = 0;
+function drawMini(now) {
+  if (now - miniAt < 90) return; miniAt = now; const W = mini.width, c = W / 2;
+  mg.clearRect(0, 0, W, W); mg.save(); mg.beginPath(); mg.arc(c, c, c - 2, 0, 7); mg.clip();
+  mg.fillStyle = 'rgba(10,20,16,.82)'; mg.fillRect(0, 0, W, W);
+  const ringPx = (r, w, col) => { const [, ] = [0, 0]; mg.beginPath(); mg.arc(c, c, (c - 10) * r / MINI_R, 0, 7); mg.lineWidth = w; mg.strokeStyle = col; mg.stroke(); };
+  ringPx(60, (c - 10) * 20 / MINI_R, 'rgba(70,76,84,.9)'); ringPx(21, (c - 10) * 12 / MINI_R, 'rgba(150,148,130,.5)');
+  for (const g2 of [108, 252]) { const [x, y] = mw(60 * Math.cos(deg(g2)), 60 * Math.sin(deg(g2))); mg.fillStyle = '#e8b84a'; mg.fillRect(x - 4, y - 4, 8, 8); }
+  mg.fillStyle = '#d23a32'; mg.beginPath(); mg.arc(c, c, 6, 0, 7); mg.fill(); mg.fillStyle = '#fff'; mg.fillRect(c - 6, c - 1, 12, 2);
+  for (const b of buildingRoots) { const [x, y] = mw(b.position.x, b.position.z), q = qtyOf(b.userData.pid), n = q.units + q.cases; mg.fillStyle = n ? '#3fbe97' : (P[b.userData.pid].category === 'preorder' ? '#e8b84a' : '#9fb5ff'); mg.beginPath(); mg.arc(x, y, n ? 6 : 4.5, 0, 7); mg.fill(); if (b.userData.pid === selectedPid) { mg.strokeStyle = '#fff'; mg.lineWidth = 2; mg.stroke(); } }
+  const cp = walk.on ? walk.pos : camera.position, [cx, cy] = mw(cp.x, cp.z);
+  let hx, hz; if (walk.on) { hx = -Math.sin(walk.yaw); hz = -Math.cos(walk.yaw); } else { const d = controls.target.clone().sub(camera.position); hx = d.x; hz = d.z; const m = Math.hypot(hx, hz) || 1; hx /= m; hz /= m; }
+  const ang = Math.atan2(hz, hx); mg.fillStyle = 'rgba(255,255,255,.28)'; mg.beginPath(); mg.moveTo(cx, cy); mg.arc(cx, cy, 26, ang - 0.5, ang + 0.5); mg.fill();
+  mg.fillStyle = '#fff'; mg.beginPath(); mg.arc(cx, cy, 4, 0, 7); mg.fill(); mg.strokeStyle = '#06130e'; mg.lineWidth = 2; mg.stroke();
+  mg.restore();
+}
+mini.addEventListener('pointerdown', e => {
+  const r = mini.getBoundingClientRect(), px = (e.clientX - r.left) * mini.width / r.width, py = (e.clientY - r.top) * mini.height / r.height, w = mUn(px, py);
+  let best = null, bd = 1e9; for (const b of buildingRoots) { const [x, y] = mw(b.position.x, b.position.z), d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = b; } }
+  if (best && bd < 15) { openShop(best.userData.pid); return; }
+  if (walk.on) { walk.goto = clampRing(w.clone()); } else { const t = new THREE.Vector3(w.x, 0, w.z); flyTo(t, t.clone().add(new THREE.Vector3(0, 55, 62)), 900); setChips(null); }
+});
+
 /* ---------- picking ---------- */
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function setNdc(ev) { const r = canvas.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
 function pickAt(ev) {
-  const r = canvas.getBoundingClientRect();
-  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects([tower, ...buildingRoots], true)[0]; if (!hit) return null;
+  setNdc(ev); const hit = ray.intersectObjects([tower, ...buildingRoots], true)[0]; if (!hit) return null;
   let o = hit.object; while (o && !(o.userData && (o.userData.pid || o.userData.tower))) o = o.parent;
   return o ? (o.userData.tower ? 'tower' : o.userData.pid) : null;
 }
-let down = null, hovered = null;
+let down = null, hovered = null, lastPtr = null, selectedPid = null;
+const tip = $('tip');
 const hideHint = () => $('hint').classList.add('gone');
-canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; hideHint(); if (tween) { tween = null; controls.enabled = true; } });
-canvas.addEventListener('wheel', () => { if (tween) { tween = null; controls.enabled = true; } hideHint(); }, { passive: true });
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; lastPtr = { x: e.clientX, y: e.clientY }; hideHint(); if (tween && !walk.on && !tween.onDone) { tween = null; controls.enabled = true; } });
+canvas.addEventListener('wheel', e => { if (tween && !tween.onDone) { tween = null; controls.enabled = true; } hideHint(); if (walk.on) { walk.pos.addScaledVector(new THREE.Vector3(-Math.sin(walk.yaw), 0, -Math.cos(walk.yaw)), -e.deltaY * 0.04); clampRing(walk.pos); walk.goto = null; } }, { passive: true });
 canvas.addEventListener('pointerup', e => {
-  if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
-  if (moved < 8 && dt < 500) { const pid = pickAt(e); if (pid === 'tower') { closeShop(); flyToView('tower', 900); openCheckout(); } else if (pid) openShop(pid); }
+  if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null; lastPtr = null;
+  if (moved < 8 && dt < 500) {
+    const pid = pickAt(e);
+    if (pid === 'tower') { closeShop(); flyToView('tower', 900); openCheckout(); }
+    else if (pid) openShop(pid);
+    else if (walk.on) { setNdc(e); const pt = new THREE.Vector3(); if (ray.ray.intersectPlane(groundPlane, pt)) walk.goto = clampRing(pt); }
+  }
 });
 canvas.addEventListener('pointermove', e => {
-  if (e.pointerType !== 'mouse' || down) return;
+  if (walk.on && down && lastPtr) { const dx = e.clientX - lastPtr.x, dy = e.clientY - lastPtr.y; if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) { walk.yaw -= dx * 0.0042; walk.pitch = clamp(walk.pitch - dy * 0.0034, -1.15, 1.0); walk.goto = null; } lastPtr = { x: e.clientX, y: e.clientY }; }
+  if (e.pointerType !== 'mouse' || down) { tip.style.display = 'none'; return; }
   const pid = pickAt(e);
   if (pid !== hovered) {
     if (hovered && buildings[hovered]) buildings[hovered].userData.hoverT = 0;
-    hovered = pid; if (pid && buildings[pid]) buildings[pid].userData.hoverT = 1; canvas.style.cursor = pid ? 'pointer' : 'grab';
+    hovered = pid; if (pid && buildings[pid]) buildings[pid].userData.hoverT = 1; canvas.style.cursor = pid ? 'pointer' : (walk.on ? 'crosshair' : 'grab');
   }
+  if (pid && P[pid]) { const p = P[pid]; tip.innerHTML = `${p.name}<br>יחידה <b>${fmt(p.unitPrice)} ₪</b> · קייס <b>${fmt(p.casePrice)} ₪</b>`; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 270, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
+  else if (pid === 'tower') { tip.innerHTML = 'מגדל ההזמנות<br>לחצו לסיום ושליחה'; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 270, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
+  else tip.style.display = 'none';
 });
 
 /* ---------- UI: shop sheet ---------- */
 const shopEl = $('shop'), coEl = $('checkout');
 const stepper = id => `<div class="stepper"><button type="button" data-d="-1" data-t="${id}" aria-label="הפחתה">–</button><input id="${id}" type="number" inputmode="numeric" min="0" step="1" value="0"><button type="button" data-d="1" data-t="${id}" aria-label="הוספה">+</button></div>`;
 function selectBuilding(pid) {
+  selectedPid = pid;
   if (!pid) { marker.visible = false; return; }
   const b = buildings[pid], F = b.userData.F, r = Math.max(F.w, F.d) * 0.78;
   marker.position.set(b.position.x, 0, b.position.z); marker.scale.set(r, 1, r); marker.visible = true;
 }
 function openShop(pid) {
-  const p = P[pid]; closeCheckout(); selectBuilding(pid); flyToBuilding(pid);
+  const p = P[pid]; closeCheckout(); selectBuilding(pid); if (!walk.on) flyToBuilding(pid);
   const q = qtyOf(pid);
   shopEl.innerHTML = `
     <div class="sheet-head">
       <img class="sheet-img" src="../${p.image}" alt="">
       <div><h2 class="sheet-title">${p.name}</h2>
-      <div class="sheet-sub">יחידה: <b>${fmt(p.unitPrice)} ₪</b><br>קייס (${p.caseQty} יחידות): <b>${fmt(p.casePrice)} ₪</b></div></div>
+      <div class="prices"><div class="price"><span>יחידה</span><b>${fmt(p.unitPrice)} ₪</b></div><div class="price alt"><span>קייס · ${p.caseQty} יח׳</span><b>${fmt(p.casePrice)} ₪</b></div></div></div>
       <button class="close" id="shop-x" aria-label="סגור">✕</button>
     </div>
     <div class="row"><span class="lbl">יחידות</span>${stepper('q-units')}</div>
@@ -870,7 +1063,7 @@ function openCheckout() {
 }
 function closeCheckout() { coEl.hidden = true; }
 $('cart-fab').addEventListener('click', () => { if (coEl.hidden) { flyToView('tower', 1000); openCheckout(); } else closeCheckout(); });
-document.querySelectorAll('#views .chip').forEach(c => c.addEventListener('click', () => { hideHint(); flyToView(c.dataset.view, 1100); }));
+document.querySelectorAll('#views .chip[data-view]').forEach(c => c.addEventListener('click', () => { hideHint(); flyToView(c.dataset.view, 1100); }));
 addEventListener('keydown', e => { if (e.key === 'Escape') { closeShop(); closeCheckout(); } });
 
 /* ---------- loop ---------- */
@@ -881,11 +1074,12 @@ function loop(now) {
   if (tween) {
     const k = clamp((now - tween.t0) / tween.ms, 0, 1), e = ease(k);
     controls.target.lerpVectors(tween.fromT, tween.toT, e); camera.position.lerpVectors(tween.fromP, tween.toP, e);
-    if (k >= 1) { tween = null; controls.enabled = true; }
+    if (k >= 1) { const cb = tween.onDone; tween = null; if (cb) cb(); else controls.enabled = true; }
   }
   { const r = Math.hypot(controls.target.x, controls.target.z); if (r > 300) { controls.target.x *= 300 / r; controls.target.z *= 300 / r; } controls.target.y = clamp(controls.target.y, 0, 80); }
-  controls.update();
-  if (camera.position.y < 1.4) camera.position.y = 1.4;
+  if (walk.on) updateWalk(dt, now); else controls.update();
+  if (!walk.on && camera.position.y < 1.4) camera.position.y = 1.4;
+  drawMini(now);
   if (screenDirty && now - screenAt > 150) { drawScreen(); screenDirty = false; screenAt = now; }
   towerAnim.ball.rotation.y = now * 0.0005;
   { const a = towerAnim.pts.geometry.attributes.position, N = towerAnim.N, M = towerAnim.M;
@@ -901,6 +1095,7 @@ function loop(now) {
   }
   if (marker.visible) { const p = 1 + Math.sin(now * 0.004) * 0.04; marker.userData.ring.scale.set(p, p, p); }
   updatePeople(dt);
+  for (const fn of animators) fn(now, dt);
   if (gradePass) gradePass.uniforms.uBlur.value = clamp((camera.position.distanceTo(controls.target) - 40) / 120, 0, 1) * 2.6;
   if (composer) composer.render(); else renderer.render(scene, camera);
 }
