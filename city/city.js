@@ -8,6 +8,10 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 /* ======================================================================
    עיר הפוקימון v3 — עיר עגולה.
@@ -43,7 +47,7 @@ const autoLow = matchMedia('(pointer: coarse)').matches || innerWidth < 760;
 const QUALITY = params.get('q') || (autoLow ? 'low' : 'high');
 const HI = QUALITY === 'high';
 const Q = HI
-  ? { shadowMap: 2048, bloom: true, people: 44, pr: 2, treesFar: 120, sky: 80 }
+  ? { shadowMap: 4096, bloom: true, people: 44, pr: 2, treesFar: 120, sky: 80 }
   : { shadowMap: 1024, bloom: false, people: 20, pr: 1.5, treesFar: 50, sky: 40 };
 $('quality').textContent = HI ? 'איכות: גבוהה' : 'איכות: חסכונית';
 $('quality').onclick = () => { params.set('q', HI ? 'low' : 'high'); location.search = params.toString(); };
@@ -97,11 +101,12 @@ const sky = new Sky(); sky.scale.setScalar(2800); scene.add(sky);
   u.turbidity.value = 7; u.rayleigh.value = 1.7; u.mieCoefficient.value = 0.006; u.mieDirectionalG.value = 0.92;
   u.sunPosition.value.setFromSphericalCoords(1, deg(80), deg(238));
 }
-scene.fog = new THREE.Fog(0xb88f78, 380, 1100);
+scene.fog = new THREE.Fog(0xb88f78, 300, 950);
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.3;
-scene.add(new THREE.HemisphereLight(0xb9c9ff, 0x4a5c40, 1.15));
-const sun = new THREE.DirectionalLight(0xffc48a, 3.1);
+scene.environmentIntensity = 0.45;
+scene.add(new THREE.HemisphereLight(0xb9c9ff, 0x4a5c40, 0.8));
+{ const fill = new THREE.DirectionalLight(0x86a8ff, 0.7); fill.position.set(-300, 140, -240); scene.add(fill); }
+const sun = new THREE.DirectionalLight(0xffc48a, 3.5);
 {
   const dir = new THREE.Vector3().setFromSphericalCoords(1, deg(62), deg(238));
   sun.position.copy(dir.multiplyScalar(420));
@@ -142,9 +147,19 @@ function flat(geo, mat, y) {
 const disc = (r, mat, y) => flat(new THREE.CircleGeometry(r, 96), mat, y);
 const ring = (r0, r1, mat, y) => flat(new THREE.RingGeometry(r0, r1, 128, 1), mat, y);
 disc(1800, std(0xffffff, { map: noiseTexture('#3b5a39', 60, 256, 260), roughness: 1 }), 0);
-ring(R_ROAD[0], R_ROAD[1], std(0xffffff, { map: noiseTexture('#2a2d33', 40, 256, 24), roughness: 0.95 }), 0.03);
-ring(R_IN_WALK[0], R_IN_WALK[1], std(0x7a8379), 0.05);
-ring(R_OUT_WALK[0], R_OUT_WALK[1], std(0x7a8379), 0.05);
+function wetMap() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 26; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = 14 + Math.random() * 38, gr = g.createRadialGradient(x, y, 2, x, y, r); gr.addColorStop(0, 'rgba(40,40,40,.95)'); gr.addColorStop(1, 'rgba(40,40,40,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10, 10); return t;
+}
+function tileTexture(base, line) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = line; g.lineWidth = 3; g.strokeRect(1.5, 1.5, 125, 125); for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; g.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(70, 3); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+ring(R_ROAD[0], R_ROAD[1], std(0xffffff, { map: noiseTexture('#2a2d33', 40, 256, 24), roughnessMap: wetMap(), roughness: 1, metalness: 0.15 }), 0.03);
+ring(R_IN_WALK[0], R_IN_WALK[1], std(0xffffff, { map: tileTexture('#8b9288', '#6a7168') }), 0.05);
+ring(R_OUT_WALK[0], R_OUT_WALK[1], std(0xffffff, { map: tileTexture('#8b9288', '#6a7168') }), 0.05);
 ring(R_PLAZA, R_PARK, std(0xffffff, { map: noiseTexture('#44683f', 50, 256, 30), roughness: 1 }), 0.04);
 ring(R_FORE[0] - 0.01, R_FORE[1] + 0.01, std(0x3d4a3f), 0.045);
 for (const r of [R_ROAD[0], R_ROAD[1], R_IN_WALK[0], R_OUT_WALK[1]]) ring(r - 0.1, r + 0.14, std(0xb3b8ae), 0.14);
@@ -447,6 +462,8 @@ function makeForecourt(def, T) {
   g.add(bench);
   return g;
 }
+const gltfLoader = new GLTFLoader();
+{ const d = new DRACOLoader(); d.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'); gltfLoader.setDRACOLoader(d); }
 function makeBuilding(def) {
   const T = TYPES[def.building], F = FOOT(T), root = new THREE.Group();
   root.userData = { pid: def.id, T, F };
@@ -461,7 +478,7 @@ function makeBuilding(def) {
   root.userData.hover = 0; root.userData.hoverT = 0;
   shadowify(proc, true, true);
   if (manifest[def.building]) {
-    new GLTFLoader().loadAsync('./models/' + manifest[def.building]).then(gl => {
+    gltfLoader.loadAsync('./models/' + manifest[def.building]).then(gl => {
       const m = gl.scene; shadowify(m); root.remove(proc); root.add(m);
       m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); } });
       const a = m.getObjectByName('SignAnchor'); if (a) sign.position.copy(a.position);
@@ -565,6 +582,23 @@ makeGate(252, ['instock', 'preorder']);
   const poles = new THREE.InstancedMesh(poleGeo, std(0x2b3430, { metalness: 0.6, roughness: 0.4 }), lamps.length), bulbs = new THREE.InstancedMesh(bulbGeo, basic(0xffe6b0), lamps.length);
   lamps.forEach((l, i) => { m4.makeTranslation(l.x, 0, l.z); poles.setMatrixAt(i, m4); m4.makeTranslation(l.x, 6.55, l.z); bulbs.setMatrixAt(i, m4); });
   poles.castShadow = true; for (const m of [poles, bulbs]) { noRay(m); scene.add(m); }
+  { // warm light pools under lamps
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 2, 64, 64, 64); gr.addColorStop(0, 'rgba(255,214,150,.75)'); gr.addColorStop(1, 'rgba(255,214,150,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const pm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.55 });
+    const pg = new THREE.PlaneGeometry(15, 15); pg.rotateX(-Math.PI / 2);
+    const pools = new THREE.InstancedMesh(pg, pm, lamps.length);
+    lamps.forEach((l, i) => { m4.makeTranslation(l.x, 0.2, l.z); pools.setMatrixAt(i, m4); }); noRay(pools); scene.add(pools);
+  }
+  { // grass tufts + bushes
+    const gn = HI ? 2600 : 900, tuft = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.9, 4), std(0xffffff, { flatShading: true }), gn);
+    for (let i = 0; i < gn; i++) { const a = rnd() * Math.PI * 2, r = R_PLAZA + 2 + rnd() * (R_PARK - R_PLAZA - 3); const q = rnd() < 0.55 ? polar(r, a) : polar(86 + rnd() * 38, a);
+      qt.setFromAxisAngle(Y, rnd() * 6); v3.set(q.x, 0.4, q.z); sc3.set(0.8 + rnd(), 0.8 + rnd() * 1.2, 0.8 + rnd()); m4.compose(v3, qt, sc3); tuft.setMatrixAt(i, m4); tuft.setColorAt(i, new THREE.Color(pick([0x4f8a43, 0x62a24c, 0x3f7a3b, 0x7ab356]))); }
+    sc3.set(1, 1, 1); noRay(tuft); tuft.receiveShadow = true; scene.add(tuft);
+    const bn = 120, bush = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.4, 1), std(0xffffff, { flatShading: true }), bn);
+    for (let i = 0; i < bn; i++) { const a = deg(i * (360 / bn) + rnd() * 2), onIn = i % 2, p = polar(onIn ? R_IN_WALK[0] - 1.0 : R_FORE[0] - 0.3, a); qt.setFromAxisAngle(Y, rnd() * 6); v3.set(p.x, 0.8, p.z); sc3.set(0.9 + rnd() * 0.5, 0.7 + rnd() * 0.4, 0.9 + rnd() * 0.5); m4.compose(v3, qt, sc3); bush.setMatrixAt(i, m4); bush.setColorAt(i, new THREE.Color(pick([0x2f7a3e, 0x3f8f48, 0x2a6b3a]))); }
+    sc3.set(1, 1, 1); bush.castShadow = true; bush.receiveShadow = true; noRay(bush); scene.add(bush);
+  }
   const benches = []; for (let k = 0; k < 10; k++) { const a = deg(k * 36 + 18), p = polar(R_PLAZA + 3.2, a); benches.push({ x: p.x, z: p.z, ry: -a + Math.PI / 2, y: 0.4 }); }
   instances(new THREE.BoxGeometry(2.6, 0.5, 0.8), std(0x8a5f3a), benches, true);
   const fl = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.7, 0), std(0xffffff), 120);
@@ -657,10 +691,30 @@ function updateBadge(pid) {
 PRODUCTS.forEach(p => updateBadge(p.id)); updateFab();
 
 /* ---------- post ---------- */
-let composer = null;
+let composer = null, gradePass = null;
 if (Q.bloom) {
   composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.4, 0.6, 0.95)); composer.addPass(new OutputPass());
+  try { const ao = new GTAOPass(scene, camera, innerWidth, innerHeight); ao.updateGtaoMaterial({ radius: 4.5, scale: 1.4, thickness: 5 }); composer.addPass(ao); } catch (e) { console.warn('GTAO unavailable', e); }
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.6, 0.95));
+  composer.addPass(new OutputPass());
+  const GradeShader = {
+    uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) }, uBlur: { value: 1.5 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uBlur; varying vec2 vUv;
+      void main(){
+        vec2 px = 1.0 / uRes; float d = abs(vUv.y - 0.46); float b = smoothstep(0.24, 0.52, d) * uBlur;
+        vec4 c = texture2D(tDiffuse, vUv);
+        if (b > 0.05) { vec4 s = c; for (int i = 0; i < 8; i++) { float a = float(i) * 0.785398; s += texture2D(tDiffuse, vUv + vec2(cos(a), sin(a)) * px * b * (1.0 + float(i - (i / 2) * 2))); } c = s / 9.0; }
+        vec3 col = c.rgb; float l = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(vec3(l), col, 1.14);
+        col *= mix(vec3(0.95, 1.0, 1.07), vec3(1.07, 1.0, 0.93), smoothstep(0.2, 0.8, l));
+        col = (col - 0.5) * 1.06 + 0.5;
+        vec2 q = vUv - 0.5; col *= 1.0 - dot(q, q) * 0.95;
+        gl_FragColor = vec4(col, c.a);
+      }`
+  };
+  gradePass = new ShaderPass(GradeShader); composer.addPass(gradePass);
+  composer.addPass(new SMAAPass());
 }
 
 /* ---------- camera / controls (free zoom) ---------- */
@@ -690,11 +744,14 @@ function flyToView(name, ms) { const v = VIEWS[name](), k = aspectScale(); flyTo
 function flyToBuilding(pid) {
   const b = buildings[pid], k = Math.min(1.7, aspectScale()), t = b.position.clone().addScaledVector(b.userData.dirIn, -10); t.y = 3;
   const tang = new THREE.Vector3(-b.userData.dirIn.z, 0, b.userData.dirIn.x);
-  flyTo(t, t.clone().addScaledVector(b.userData.dirIn, 70 * k).addScaledVector(tang, 14 * k).add(new THREE.Vector3(0, 36 * k, 0)), 950); setChips(null);
+  const wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
+  const dg = [deg(108), deg(252)].map(g => wrap(g - b.userData.angle)).sort((p, q) => Math.abs(p) - Math.abs(q))[0];
+  tang.multiplyScalar(dg > 0 ? -1 : 1);
+  flyTo(t, t.clone().addScaledVector(b.userData.dirIn, 70 * k).addScaledVector(tang, 16 * k).add(new THREE.Vector3(0, 36 * k, 0)), 950); setChips(null);
 }
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
-  if (composer) { composer.setSize(w, h); composer.setPixelRatio(Math.min(devicePixelRatio || 1, Q.pr)); }
+  if (composer) { composer.setSize(w, h); composer.setPixelRatio(Math.min(devicePixelRatio || 1, Q.pr)); if (gradePass) gradePass.uniforms.uRes.value.set(w * Math.min(devicePixelRatio || 1, Q.pr), h * Math.min(devicePixelRatio || 1, Q.pr)); }
 }
 addEventListener('resize', resize); resize();
 { const k = aspectScale(); camera.position.set(0, 520 * k, 640 * k); controls.target.set(0, 0, 0); controls.update(); flyToView('overview', 2800); }
@@ -844,6 +901,7 @@ function loop(now) {
   }
   if (marker.visible) { const p = 1 + Math.sin(now * 0.004) * 0.04; marker.userData.ring.scale.set(p, p, p); }
   updatePeople(dt);
+  if (gradePass) gradePass.uniforms.uBlur.value = clamp((camera.position.distanceTo(controls.target) - 40) / 120, 0, 1) * 2.6;
   if (composer) composer.render(); else renderer.render(scene, camera);
 }
 requestAnimationFrame(loop);

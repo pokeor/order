@@ -34,6 +34,9 @@ MATS = {
     'GlassCool': make_mat('GlassCool', '#3a5f80', 0.2, 0.0, '#bfe3ff', 0.9),
     'GlassDark': make_mat('GlassDark', '#162330', 0.15),
     'GlassDoor': make_mat('GlassDoor', '#d6eef7', 0.15, 0.0, '#d9f1ff', 1.1),
+    'Wood': make_mat('Wood', '#7a5236', 0.8), 'Leaf': make_mat('Leaf', '#3f8f48', 0.9),
+    'FlowerA': make_mat('FlowerA', '#e35d7a', 0.7), 'FlowerB': make_mat('FlowerB', '#f2c14e', 0.7),
+    'Lantern': make_mat('Lantern', '#ffd89a', 0.3, 0.0, '#ffd08a', 4.0),
     'BallRed': make_mat('BallRed', '#e53b32', 0.35), 'BallWhite': make_mat('BallWhite', '#f6f6f2', 0.35),
     'BallBlack': make_mat('BallBlack', '#1a1a1a', 0.5),
 }
@@ -61,7 +64,7 @@ def frustum(mat, cx, cy, cz, w1, d1, w2, d2, h):
         bm.faces.new([v[i] for i in f])
 
 def sphere(mat, cx, cy, cz, r, sy=1.0):
-    bmesh.ops.create_uvsphere(bms[mat], u_segments=28, v_segments=16, radius=1.0,
+    bmesh.ops.create_uvsphere(bms[mat], u_segments=7, v_segments=5, radius=1.0,
                               matrix=Matrix.Translation((cx, cy, cz)) @ Matrix.Diagonal((r, r * sy, r, 1)))
 
 def ball(cx, cy, cz, r, sy=1.0):
@@ -90,6 +93,11 @@ def pane(face, u, z, bw, bd, lit, ox=0, oy=0):
         s = -1 if face == 2 else 1; x = ox + s * (bw / 2 + fd / 2 - 0.08)
         box('Frame', x, oy + u, z, fd, fw + 0.2, fh + 0.2); box(gm, x + s * 0.12, oy + u, z, 0.1, fw - 0.3, fh - 0.4)
         box('Trim', x + s * 0.1, oy + u, z - fh / 2 - 0.15, 0.4, fw + 0.7, 0.22)
+        if lit != 2 and abs(u * 7) % 2 < 1.0:
+            box('Wood', x + s * 0.45, oy + u, z - fh / 2 - 0.45, 0.55, fw + 0.2, 0.5)
+            for k in range(4):
+                sphere('Leaf', x + s * 0.5, oy + u + (k - 1.5) * 0.5, z - fh / 2 - 0.1, 0.28)
+                sphere('FlowerA' if k % 2 else 'FlowerB', x + s * 0.55, oy + u + (k - 1.5) * 0.5, z - fh / 2 + 0.12, 0.17)
 
 def windows(bw, bd, z0, z1, step, cols, skip_front_below=0.0, ox=0, oy=0, faces=(0, 1, 2, 3), rng=None):
     rng = rng or random.Random(5); z = z0
@@ -110,6 +118,7 @@ def entrance(front_y, width, oy_extra=0.0):
     box('Roof', 0, front_y - 1.7, 5.15, width + 1.6, 3.4, 0.4, rx=math.radians(-6))
     box('Accent', 0, front_y - 3.35, 5.0, width + 1.6, 0.3, 0.5)
     for sx in (-1, 1): box('Metal', sx * (width / 2 + 0.5), front_y - 3.0, 2.5, 0.22, 0.22, 5.0)
+    for sx in (-1, 1): box('Lantern', sx * (width / 2 + 1.1), front_y - 0.3, 3.4, 0.45, 0.45, 0.9); box('Frame', sx * (width / 2 + 1.1), front_y - 0.18, 3.95, 0.6, 0.6, 0.14)
     box('Base', 0, front_y - 1.4, 0.18, width + 1.4, 2.8, 0.36)
 
 def anchor(name, y, z):
@@ -142,6 +151,7 @@ def t_hall():
     box('Roof', 0, -D / 2 - 0.4, H + 1.4, 5.8, 1.4, 0.8)           # front gable base
     frustum('Roof', 0, -D / 2 - 0.3, H + 3.6, 6.4, 2.6, 0.5, 0.5, 4.2)
     ball(0, 0.0, H + 8.0, 2.3)
+    box('WallShade', W * 0.3, 1.6, H + 4.2, 1.4, 1.4, 4.0); box('Trim', W * 0.3, 1.6, H + 6.3, 1.9, 1.9, 0.35)
     for sx in (-1, 1): box('WallShade', sx * (W / 2 - 0.1), -D / 2 + 0.1, H / 2, 0.9, 0.9, H)
     for sx in (-1, 1): box('Wall', sx * (W / 2 + 2.4), 0.8, 4.2, 4.6, D * 0.8, 8.4); frustum('Roof', sx * (W / 2 + 2.4), 0.8, 9.6, 5.8, D * 0.8 + 1.2, 1.2, 1.2, 2.6)
     windows(W, D, 3.0, H - 1.5, 3.5, 4, skip_front_below=11.0, faces=(0, 1))
@@ -160,6 +170,7 @@ def t_shop():
     box('Wall', W * 0.3, -D * 0.5 - 0.0, 3.0, 2.0, 0.1, 0.1)
     windows(W, D, 3.0, H - 2.4, 3.6, 3, skip_front_below=11.0)
     box('Metal', -W * 0.28, D * 0.15, H + 1.4, 1.8, 1.8, 1.4)
+    box('WallShade', W * 0.3, 1.0, H + 3.8, 1.2, 1.2, 3.2); box('Trim', W * 0.3, 1.0, H + 5.5, 1.6, 1.6, 0.3)
     entrance(-D / 2, W * 0.6); anchor('a', -(D / 2 + 0.2), 8.6)
 
 def t_kiosk():
@@ -221,9 +232,13 @@ def finish(name, ox):
     for key, bm in bms.items():
         if not bm.verts: bm.free(); continue
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        if key in ('Wall', 'WallShade', 'Trim', 'Roof', 'Base', 'Frame', 'Accent', 'Wood', 'Gold'):
+            try: bmesh.ops.bevel(bm, geom=bm.edges[:], offset=0.06, segments=1, profile=0.5, affect='EDGES')
+            except Exception as e: print('bevel skipped', key, e)
         me = bpy.data.meshes.new(name + '_' + key); bm.to_mesh(me); bm.free()
         ob = bpy.data.objects.new(name + '_' + key, me); ob.data.materials.append(MATS[key])
-        for p in me.polygons: p.use_smooth = False
+        for p in me.polygons: p.use_smooth = key.startswith('Ball') or key in ('Leaf', 'FlowerA', 'FlowerB')
+        me.shade_smooth_by_angle(angle=math.radians(35)) if key not in ('Leaf','FlowerA','FlowerB') and not key.startswith('Ball') and hasattr(me, 'shade_smooth_by_angle') else None
         bpy.context.collection.objects.link(ob); objs.append(ob)
     return objs
 
@@ -237,7 +252,8 @@ for name, fn in TYPES:
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, name + '.glb'), export_format='GLB', use_selection=True,
-                              export_apply=True, export_yup=True, export_cameras=False, export_lights=False, export_extras=False)
+                              export_apply=True, export_yup=True, export_cameras=False, export_lights=False, export_extras=False,
+                              export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=7)
     for o in objs: o.location.x += x_off
     x_off += 24
     print('EXPORTED', name, os.path.getsize(os.path.join(OUT_DIR, name + '.glb')))
