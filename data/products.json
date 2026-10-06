@@ -1,0 +1,29 @@
+{
+  "districts": {
+    "preorder": { "title": "דלתא ריין", "subtitle": "הזמנה מוקדמת · הגעה משוערת 6.11.2026" },
+    "instock": { "title": "זמין במלאי", "subtitle": "מוצרים שכבר אצלי" }
+  },
+  "products": [
+    { "id": "box",       "category": "preorder", "name": "בוסטר בוקס",              "unitPrice": 850, "caseQty": 6,   "casePrice": 5040, "image": "images/box.jpg",       "building": "tower",  "color": "#0f6b57", "accent": "#e8b84a" },
+    { "id": "etb",       "category": "preorder", "name": "ETB — אליט טריינר בוקס",   "unitPrice": 350, "caseQty": 10,  "casePrice": 3400, "image": "images/etb.jpg",       "building": "hall",   "color": "#1b7f6a", "accent": "#e8b84a" },
+    { "id": "bundle",    "category": "preorder", "name": "בוסטר באנדל",             "unitPrice": 190, "caseQty": 25,  "casePrice": 4500, "image": "images/bundle.jpg",    "building": "shop",   "color": "#2a8a5a", "accent": "#f2d16b" },
+    { "id": "blister",   "category": "preorder", "name": "בליסטר 3 קלפים",          "unitPrice": 120, "caseQty": 24,  "casePrice": 2640, "image": "images/blister.jpg",   "building": "shop",   "color": "#3a7d8c", "accent": "#e8b84a" },
+    { "id": "bnb",       "category": "preorder", "name": "בילד אנד באטל",            "unitPrice": 150, "caseQty": 60,  "casePrice": 8400, "image": "images/bnb.jpg",       "building": "shop",   "color": "#2f6f4f", "accent": "#f2d16b" },
+    { "id": "sleeved",   "category": "preorder", "name": "בוסטר בודד בשרוול",        "unitPrice": 45,  "caseQty": 144, "casePrice": 5040, "image": "images/sleeved.jpg",   "building": "kiosk",  "color": "#5a8f3c", "accent": "#e8b84a" },
+    { "id": "checklane", "category": "preorder", "name": "צ׳קליין",                 "unitPrice": 50,  "caseQty": 16,  "casePrice": 640,  "image": "images/checklane.jpg", "building": "kiosk",  "color": "#4f7f94", "accent": "#f2d16b" },
+    { "id": "checklanep","category": "preorder", "name": "צ׳קליין פרימיום",         "unitPrice": 55,  "caseQty": 16,  "casePrice": 720,  "image": "images/checklanep.jpg","building": "kiosk",  "color": "#6c6aa8", "accent": "#e8b84a" },
+
+    { "id": "me03etb",   "category": "instock",  "name": "ME03 Perfect Order — ETB",          "unitPrice": 330, "caseQty": 10, "casePrice": 3200, "image": "images/me03etb.jpg",   "building": "hall",   "color": "#3d8f5b", "accent": "#e8b84a" },
+    { "id": "me04box",   "category": "instock",  "name": "ME04 Chaos Rising — בוסטר בוקס",    "unitPrice": 850, "caseQty": 6,  "casePrice": 5040, "image": "images/me04box.jpg",   "building": "tower",  "color": "#5a45a8", "accent": "#f2d16b" },
+    { "id": "me05box",   "category": "instock",  "name": "ME05 Pitch Black — בוסטר בוקס",     "unitPrice": 850, "caseQty": 6,  "casePrice": 5040, "image": "images/me05box.jpg",   "building": "tower",  "color": "#3b2f5e", "accent": "#e8b84a" },
+    { "id": "zygarde",   "category": "instock",  "name": "Mega Zygarde EX Premium Collection","unitPrice": 289, "caseQty": 6,  "casePrice": 1674, "image": "images/zygarde.jpg",   "building": "vault",  "color": "#2c5a3a", "accent": "#e8b84a" },
+    { "id": "greninja",  "category": "instock",  "name": "Mega Greninja EX Premium Collection","unitPrice": 289,"caseQty": 6,  "casePrice": 1674, "image": "images/greninja.jpg",  "building": "vault",  "color": "#2d5fb0", "accent": "#f2d16b" },
+    { "id": "armarouge", "category": "instock",  "name": "Armarouge EX Premium Collection",   "unitPrice": 245, "caseQty": 6,  "casePrice": 1410, "image": "images/armarouge.jpg", "building": "vault",  "color": "#b8402a", "accent": "#f2d16b" },
+    { "id": "fp1",       "category": "instock",  "name": "First Partner Series 1",            "unitPrice": 240, "caseQty": 6,  "casePrice": 1380, "image": "images/fp1.jpg",       "building": "vault",  "color": "#4a9a4f", "accent": "#e8b84a" },
+    { "id": "fp2",       "category": "instock",  "name": "First Partner Series 2",            "unitPrice": 235, "caseQty": 6,  "casePrice": 1350, "image": "images/fp2.jpg",       "building": "vault",  "color": "#b84a52", "accent": "#f2d16b" },
+    { "id": "fp3",       "category": "instock",  "name": "First Partner Series 3",            "unitPrice": 230, "caseQty": 6,  "casePrice": 1320, "image": "images/fp3.jpg",       "building": "vault",  "color": "#7a5aa6", "accent": "#e8b84a" },
+    { "id": "moonlit",   "category": "instock",  "name": "Mega Moonlit Tin",                  "unitPrice": 155, "caseQty": 6,  "casePrice": 870,  "image": "images/moonlit.jpg",   "building": "dome",   "color": "#d96aa0", "accent": "#f2d16b" },
+    { "id": "lumiose",   "category": "instock",  "name": "Lumiose City Mini Tin",             "unitPrice": 100, "caseQty": 40, "casePrice": 3600, "image": "images/lumiose.jpg",   "building": "dome",   "color": "#4a86c9", "accent": "#e8b84a" },
+    { "id": "pokeball",  "category": "instock",  "name": "Poke Ball Tin (24Q4)",              "unitPrice": 140, "caseQty": 6,  "casePrice": 780,  "image": "images/pokeball.jpg",  "building": "dome",   "color": "#c0392b", "accent": "#f2d16b" }
+  ]
+}

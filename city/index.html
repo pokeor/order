@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>עיר הפוקימון</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#0c1512; --panel:#14201b; --panel-2:#1b2b24; --ink:#eef2e9; --ink-soft:#a3b3a6;
+    --line:#2b3d34; --accent:#3fbe97; --accent-ink:#06130e; --gold:#e8b84a; --danger:#e58369;
+    --whatsapp:#25c862;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
+  button{font-family:inherit}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+
+  .hud-top{position:fixed;inset-inline:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .hud-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .brand{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.25rem;text-shadow:0 2px 8px rgba(0,0,0,.6);pointer-events:auto}
+  .back{pointer-events:auto;color:var(--ink);text-decoration:none;font-size:.78rem;font-weight:600;background:rgba(20,32,27,.8);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+  .views{display:flex;gap:6px;pointer-events:auto;overflow-x:auto;scrollbar-width:none}
+  .views::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;border:1px solid var(--line);background:rgba(20,32,27,.82);backdrop-filter:blur(6px);color:var(--ink);font-size:.8rem;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  #hint{position:fixed;inset-inline:0;bottom:calc(86px + env(safe-area-inset-bottom));text-align:center;font-size:.82rem;color:var(--ink-soft);text-shadow:0 1px 6px #000;pointer-events:none;transition:opacity .4s}
+  #hint.gone{opacity:0}
+
+  #cart-fab{position:fixed;inset-inline-start:12px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:16px;padding:13px 18px;font-weight:700;font-size:.95rem;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  #cart-fab .n{background:var(--accent-ink);color:var(--accent);border-radius:999px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:.78rem;padding:0 6px}
+  #cart-fab .t{font-variant-numeric:tabular-nums}
+
+  .sheet{position:fixed;z-index:5;background:var(--panel);border:1px solid var(--line);box-shadow:0 -10px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px;padding:16px;max-height:72vh;overflow:auto;
+    inset-inline:0;bottom:0;border-radius:20px 20px 0 0;padding-bottom:max(16px,env(safe-area-inset-bottom));animation:up .22s ease-out}
+  .sheet[hidden]{display:none}
+  @keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+  @media (min-width:760px){
+    .sheet{inset-inline:auto;inset-inline-end:16px;bottom:16px;top:auto;width:380px;border-radius:20px;max-height:calc(100vh - 32px)}
+  }
+  .sheet-head{display:flex;gap:12px;align-items:flex-start}
+  .sheet-img{width:84px;height:108px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);object-fit:contain;flex:none}
+  .sheet-title{font-weight:700;font-size:1.05rem;line-height:1.25;margin:0}
+  .sheet-sub{color:var(--ink-soft);font-size:.8rem;margin-top:4px;line-height:1.5}
+  .sheet-sub b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .close{margin-inline-start:auto;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;flex:none}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .lbl{font-size:.86rem;color:var(--ink-soft)}
+  .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .stepper button{width:38px;height:38px;border:0;background:var(--panel-2);color:var(--ink);font-size:1.15rem;cursor:pointer}
+  .stepper button:active{background:var(--line)}
+  .stepper input{width:52px;text-align:center;border:0;background:var(--panel);color:var(--ink);font-family:inherit;font-weight:700;font-size:1rem;font-variant-numeric:tabular-nums;padding:8px 0}
+  .line-total{align-self:flex-end;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;min-height:1.2em}
+  .btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;flex:1}
+  .btn-main{background:var(--accent);color:var(--accent-ink)}
+  .btn-wa{background:var(--whatsapp);color:#fff}
+  .btn-ghost{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+
+  .lines{display:flex;flex-direction:column;gap:8px}
+  .line{display:flex;justify-content:space-between;gap:10px;font-size:.88rem;color:var(--ink-soft)}
+  .line span:last-child{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .line .rm{background:none;border:0;color:var(--danger);cursor:pointer;font-size:.8rem;padding:0 6px}
+  .total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:10px}
+  .total .amt{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:.78rem;font-weight:600;color:var(--ink-soft)}
+  .field input{font-family:inherit;font-size:.95rem;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink)}
+  .field input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .msg{font-size:.84rem;border-radius:9px;padding:9px 12px;display:none}
+  .msg.show{display:block}
+  .msg.err{background:rgba(229,131,105,.15);color:var(--danger)}
+  .msg.ok{background:rgba(63,190,151,.15);color:var(--accent)}
+  .note{font-size:.76rem;color:var(--ink-soft);text-align:center}
+
+  #loading{position:fixed;inset:0;z-index:9;background:var(--bg);display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;transition:opacity .5s}
+  #loading.gone{opacity:0;pointer-events:none}
+  #loading .bar{width:180px;height:4px;background:var(--panel-2);border-radius:4px;overflow:hidden}
+  #loading .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  #nogl{position:fixed;inset:0;z-index:10;background:var(--bg);display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:24px}
+  #nogl[hidden]{display:none}
+  #nogl a{color:var(--accent-ink);background:var(--accent);padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="עיר תלת-ממד של חנויות"></canvas>
+
+<div class="hud-top">
+  <div class="hud-row">
+    <div class="brand">עיר הפוקימון</div>
+    <a class="back" href="../">לטופס הרגיל ←</a>
+  </div>
+  <div class="views" id="views">
+    <button class="chip" data-view="overview" aria-pressed="true">כל העיר</button>
+    <button class="chip" data-view="preorder" aria-pressed="false">דלתא ריין · הזמנה מוקדמת</button>
+    <button class="chip" data-view="instock" aria-pressed="false">זמין במלאי</button>
+  </div>
+</div>
+
+<div id="hint">גררו כדי להסתובב · צבטו לזום · לחצו על בניין כדי להזמין</div>
+
+<button id="cart-fab" aria-label="פתח עגלה"><span>🛒 עגלה</span><span class="n" id="cart-n">0</span><span class="t" id="cart-t">0 ₪</span></button>
+
+<section class="sheet" id="shop" hidden></section>
+<section class="sheet" id="checkout" hidden></section>
+
+<div id="loading"><div class="brand">עיר הפוקימון</div><div class="bar"><i id="bar"></i></div><div class="note">בונה את העיר…</div></div>
+<div id="nogl" hidden>
+  <div class="brand">לא ניתן להציג את העיר במכשיר הזה</div>
+  <div class="note">אפשר להזמין בדיוק אותו דבר דרך הטופס הרגיל.</div>
+  <a href="../">לטופס ההזמנה</a>
+</div>
+
+<script type="module" src="./city.js"></script>
+</body>
+</html>
