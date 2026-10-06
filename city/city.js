@@ -463,6 +463,7 @@ function makeBuilding(def) {
   if (manifest[def.building]) {
     new GLTFLoader().loadAsync('./models/' + manifest[def.building]).then(gl => {
       const m = gl.scene; shadowify(m); root.remove(proc); root.add(m);
+      m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); } });
       const a = m.getObjectByName('SignAnchor'); if (a) sign.position.copy(a.position);
     }).catch(err => console.warn('GLB load failed for', def.building, err));
   }
