@@ -236,6 +236,11 @@ def finish(name, ox):
         if key in ('Wall', 'WallShade', 'Trim', 'Roof', 'Base', 'Frame', 'Accent', 'Wood', 'Gold'):
             try: bmesh.ops.bevel(bm, geom=bm.edges[:], offset=0.06, segments=1, profile=0.5, affect='EDGES')
             except Exception as e: print('bevel skipped', key, e)
+        if key in ('Wall', 'WallShade', 'Roof', 'Base', 'Trim', 'Accent'):
+            for _ in range(3):
+                es = [e for e in bm.edges if e.calc_length() > 3.2]
+                if not es: break
+                bmesh.ops.subdivide_edges(bm, edges=es, cuts=1, use_grid_fill=True)
         me = bpy.data.meshes.new(name + '_' + key); bm.to_mesh(me); bm.free()
         ob = bpy.data.objects.new(name + '_' + key, me); ob.data.materials.append(MATS[key])
         for p in me.polygons: p.use_smooth = key.startswith('Ball') or key in ('Leaf', 'FlowerA', 'FlowerB')
@@ -243,18 +248,51 @@ def finish(name, ox):
         bpy.context.collection.objects.link(ob); objs.append(ob)
     return objs
 
+from mathutils.bvhtree import BVHTree
+
+def bake_ao(objs, dist=6.0, n=22, floor=0.34):
+    """Per-vertex ambient occlusion into a COLOR_0 attribute (multiplies base colour on the web)."""
+    meshes = [o for o in objs if o.type == 'MESH']
+    verts, tris = [], []
+    for o in meshes:
+        me = o.data; me.calc_loop_triangles(); base = len(verts)
+        verts += [tuple(v.co) for v in me.vertices]
+        tris += [tuple(base + i for i in t.vertices) for t in me.loop_triangles]
+    bvh = BVHTree.FromPolygons(verts, tris, all_triangles=True)
+    dirs = []
+    for i in range(n):
+        r = math.sqrt((i + 0.5) / n); ph = i * 2.399963
+        dirs.append(Vector((r * math.cos(ph), r * math.sin(ph), math.sqrt(max(0.0, 1 - r * r)))))
+    for o in meshes:
+        me = o.data; me.calc_normals_split() if hasattr(me, 'calc_normals_split') else None
+        attr = me.color_attributes.new('AO', 'FLOAT_COLOR', 'POINT')
+        vn = {v.index: v.normal.copy() for v in me.vertices}
+        for v in me.vertices:
+            nrm = vn[v.index]
+            if nrm.length < 0.1: nrm = Vector((0, 0, 1))
+            q = nrm.to_track_quat('Z', 'Y'); org = v.co + nrm * 0.03; hit = 0
+            for d in dirs:
+                if bvh.ray_cast(org, q @ d, dist)[0] is not None: hit += 1
+            ao = 1.0 - hit / n
+            ground = min(1.0, v.co.z / 2.2)                       # contact darkening near the floor
+            val = floor + (1 - floor) * (ao ** 1.2) * (0.78 + 0.22 * ground)
+            attr.data[v.index].color = (val, val, val, 1.0)
+        me.color_attributes.active_color = attr
+        me.color_attributes.render_color_index = me.color_attributes.find('AO')
+
 os.makedirs(OUT_DIR, exist_ok=True)
 x_off = 0
 for name, fn in TYPES:
     reset(); before = set(bpy.data.objects)
     fn()
     objs = finish(name, x_off)
+    bake_ao(objs)
     objs += [o for o in bpy.data.objects if o not in before and o.type == 'EMPTY']
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, name + '.glb'), export_format='GLB', use_selection=True,
                               export_apply=True, export_yup=True, export_cameras=False, export_lights=False, export_extras=False,
-                              export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=7)
+                              export_vertex_color='ACTIVE', export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=7)
     for o in objs: o.location.x += x_off
     x_off += 24
     print('EXPORTED', name, os.path.getsize(os.path.join(OUT_DIR, name + '.glb')))
