@@ -23,6 +23,7 @@ bms = {}
 def reset():
     global bms; bms = {k: bmesh.new() for k in MATS}
 def box(m, cx, cy, cz, sx, sy, sz, rz=0.0):
+    if m == 'Frame': return   # distant buildings: glass panes only (halves triangles)
     bmesh.ops.create_cube(bms[m], size=1.0, matrix=Matrix.Translation((cx, cy, cz)) @ Matrix.Rotation(rz, 4, 'Z') @ Matrix.Diagonal((sx, sy, sz, 1)))
 def cyl(m, cx, cy, cz, r1, r2, h, seg=32):
     bmesh.ops.create_cone(bms[m], cap_ends=True, segments=seg, radius1=r1, radius2=r2, depth=h, matrix=Matrix.Translation((cx, cy, cz)))

@@ -275,6 +275,11 @@ def bake_ao(objs, dist=6.0, n=22, floor=0.34):
     for o in meshes:
         me = o.data; me.calc_normals_split() if hasattr(me, 'calc_normals_split') else None
         attr = me.color_attributes.new('AO', 'FLOAT_COLOR', 'POINT')
+        mtl = me.materials[0]; bsdf = mtl.node_tree.nodes['Principled BSDF']; mname = mtl.name
+        if mname in ('Roof', 'Accent'): mode, tint = 'ao', (1, 1, 1)
+        elif mname.startswith('Glass') or mname in ('Lantern', 'Beacon'):
+            mode = 'emit'; e = bsdf.inputs['Emission Color'].default_value; tint = tuple(e[:3]) if bsdf.inputs['Emission Strength'].default_value > 0 else tuple(bsdf.inputs['Base Color'].default_value[:3])
+        else: mode, tint = 'base', tuple(bsdf.inputs['Base Color'].default_value[:3])
         vn = {v.index: v.normal.copy() for v in me.vertices}
         for v in me.vertices:
             nrm = vn[v.index]
@@ -285,7 +290,7 @@ def bake_ao(objs, dist=6.0, n=22, floor=0.34):
             ao = 1.0 - hit / n
             ground = min(1.0, v.co.z / 2.2)                       # contact darkening near the floor
             val = floor + (1 - floor) * (ao ** 1.2) * (0.78 + 0.22 * ground)
-            attr.data[v.index].color = (val, val, val, 1.0)
+            attr.data[v.index].color = (val * tint[0], val * tint[1], val * tint[2], 1.0) if mode == 'base' else ((*tint, 1.0) if mode == 'emit' else (val, val, val, 1.0))
         me.color_attributes.active_color = attr
         me.color_attributes.render_color_index = me.color_attributes.find('AO')
 
