@@ -572,37 +572,41 @@ function neonTexture(text, sub, col) {
 }
 const skySpots = [];
 {
-  const classes = [{ w: 18, d: 18, h: 22 }, { w: 26, d: 16, h: 14 }, { w: 16, d: 16, h: 34 }, { w: 22, d: 22, h: 26 }];
-  const set = windowSet('#8b919b', 'sky'), tints = [0xc2b3a2, 0xa5b2c4, 0xc9a898, 0x9fbcae, 0xb5a4c8], taken = [];
-  const mkMat = () => {
-    const m = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(set.wall), emissiveMap: new THREE.CanvasTexture(set.em), emissive: 0xffffff, emissiveIntensity: 1.25, roughness: 0.9 });
-    for (const t of [m.map, m.emissiveMap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; } return m;
-  };
-  const per = Math.ceil(Q.sky / classes.length), mats = [];
-  classes.forEach(c => {
-    const geo = new THREE.BoxGeometry(c.w, c.h, c.d), uv = geo.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (Math.max(c.w, c.d) / 13.6), uv.getY(i) * (c.h / 14.4));
-    const meshes = [0, 1].map(() => { const mt = mkMat(); mats.push(mt); return { m: new THREE.InstancedMesh(geo, mt, Math.ceil(per / 2)), n: 0 }; });
-    let placed = 0, guard = 0;
-    while (placed < per && guard++ < 900) {
-      const a = rnd() * Math.PI * 2, r = 165 + rnd() * 140, p = polar(r, a);
-      if (taken.some(t => Math.hypot(t.x - p.x, t.z - p.z) < 42)) continue;
-      taken.push(p); const mm = meshes[placed % 2];
-      qt.setFromAxisAngle(Y, rnd() * 3); v3.set(p.x, c.h / 2, p.z); m4.compose(v3, qt, sc3); mm.m.setMatrixAt(mm.n, m4); mm.m.setColorAt(mm.n, new THREE.Color(pick(tints))); mm.n++;
-      skySpots.push({ x: p.x, z: p.z, h: c.h, r }); placed++;
+  const SK = [
+    { name: 'stepped', h: 59, roof: 49, r: 20, bb: false }, { name: 'slab', h: 27, roof: 24.8, r: 24, bb: true },
+    { name: 'apartment', h: 32, roof: 26, r: 18, bb: false }, { name: 'round', h: 49, roof: 36, r: 18, bb: false }, { name: 'mall', h: 15, roof: 12.8, r: 26, bb: true }
+  ];
+  const tints = [0xe6d9c8, 0xc9d3e0, 0xe8c9b8, 0xc4d8cc, 0xd6c8e0], taken = [], glassMats = [], beaconMats = [];
+  const per = Math.ceil(Q.sky / SK.length);
+  for (const t of SK) {
+    const list = []; let guard = 0;
+    while (list.length < per && guard++ < 1400) {
+      const a = rnd() * Math.PI * 2, r = 170 + rnd() * 150, p = polar(r, a);
+      if (taken.some(q => Math.hypot(q.x - p.x, q.z - p.z) < q.r + t.r)) continue;
+      taken.push({ x: p.x, z: p.z, r: t.r }); list.push({ p, ry: Math.atan2(-p.x, -p.z) + (rnd() - 0.5) * 0.4 });
+      skySpots.push({ x: p.x, z: p.z, h: t.roof, r, bb: t.bb });
     }
-    meshes.forEach(mm => { mm.m.count = mm.n; mm.m.castShadow = HI; mm.m.receiveShadow = true; noRay(mm.m); scene.add(mm.m); });
+    const gl = await gltfLoader.loadAsync(`./models/sk_${t.name}.glb`).catch(err => { console.warn('skyline model missing', t.name, err); return null; });
+    if (!gl) continue;
+    gl.scene.updateMatrixWorld(true);
+    gl.scene.traverse(o => {
+      if (!o.isMesh) return; const mt = o.material, im = new THREE.InstancedMesh(o.geometry, mt, list.length);
+      list.forEach((it, i) => {
+        qt.setFromAxisAngle(Y, it.ry); v3.set(it.p.x, 0, it.p.z); sc3.set(1, 1, 1); m4.compose(v3, qt, sc3); m4.multiply(o.matrixWorld); im.setMatrixAt(i, m4);
+        if (mt.name === 'Wall') im.setColorAt(i, new THREE.Color(pick(tints)));
+      });
+      if (mt.name.startsWith('Glass') && mt.emissiveIntensity > 0 && !glassMats.includes(mt)) glassMats.push(mt);
+      if (mt.name === 'Beacon' && !beaconMats.includes(mt)) beaconMats.push(mt);
+      im.castShadow = HI && mt.name === 'Wall'; im.receiveShadow = true; noRay(im); scene.add(im);
+    });
+  }
+  animators.push(now => {
+    glassMats.forEach((m, i) => { m.emissiveIntensity = 0.85 + 0.35 * Math.sin(now * 0.0011 + i * 1.9); });
+    beaconMats.forEach((m, i) => { m.emissiveIntensity = (Math.floor(now / 900 + i) % 2) ? 3.2 : 0.15; });
   });
-  // twinkling windows: each material shifts its lit pattern on its own clock
-  mats.forEach((mt, i) => { let next = 1000 + i * 380; animators.push(now => { if (now > next) { next = now + 1400 + Math.random() * 1800; const dx = (Math.floor(Math.random() * 4) * 0.25), dy = (Math.floor(Math.random() * 4) * 0.25); mt.map.offset.set(dx, dy); mt.emissiveMap.offset.set(dx, dy); } }); });
-  // rooftop beacons, two groups blinking out of phase
-  const tall = skySpots.filter(s2 => s2.h >= 26), beaconGeo = new THREE.SphereGeometry(1.0, 10, 8);
-  const groups = [0, 1].map(k => { const sub = tall.filter((_, i) => i % 2 === k); const m = new THREE.InstancedMesh(beaconGeo, basic(0xff3b3b, { toneMapped: false }), Math.max(1, sub.length));
-    sub.forEach((t, i) => { m4.makeTranslation(t.x, t.h + 1.2, t.z); m.setMatrixAt(i, m4); }); m.count = sub.length; noRay(m); scene.add(m); return m; });
-  animators.push(now => { const ph = Math.floor(now / 900) % 2; groups[0].visible = ph === 0; groups[1].visible = ph === 1; });
   // rooftop neon billboards facing the centre
   const SIGNS = [['פוקימון TCG', 'מלאי · בוסטרים · קלפים', '#37e8ff'], ['הזמנות מוקדמות', 'דלתא ריין עכשיו', '#ff4fd8'], ['מלאי חדש!', 'ETB · בוקסים', '#ffd23a'], ['דלתא ריין', 'הגעה 6.11', '#7dff6a'], ['אספנות', 'קלפי פוקימון', '#ff8a3a']];
-  const picks = skySpots.filter(s2 => s2.r < 250).sort(() => rnd() - 0.5).slice(0, HI ? 12 : 6), neon = [];
+  const picks = skySpots.filter(q => q.bb && q.r < 280).sort(() => rnd() - 0.5).slice(0, HI ? 12 : 6), neon = [];
   picks.forEach((sp, i) => {
     const [t1, t2, col] = SIGNS[i % SIGNS.length], g = new THREE.Group(); g.position.set(sp.x, sp.h, sp.z);
     g.rotation.y = Math.atan2(-sp.x, -sp.z);
