@@ -12,6 +12,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* ======================================================================
    עיר הפוקימון v3 — עיר עגולה.
@@ -47,7 +48,7 @@ const autoLow = matchMedia('(pointer: coarse)').matches || innerWidth < 760;
 const QUALITY = params.get('q') || (autoLow ? 'low' : 'high');
 const HI = QUALITY === 'high';
 const Q = HI
-  ? { shadowMap: 4096, bloom: true, people: 44, pr: 2, treesFar: 120, sky: 80 }
+  ? { shadowMap: 4096, bloom: true, people: 38, pr: 2, treesFar: 120, sky: 80 }
   : { shadowMap: 1024, bloom: false, people: 20, pr: 1.5, treesFar: 50, sky: 40 };
 $('quality').textContent = HI ? 'איכות: גבוהה' : 'איכות: חסכונית';
 $('quality').onclick = () => { params.set('q', HI ? 'low' : 'high'); location.search = params.toString(); };
@@ -732,7 +733,22 @@ function tinted(geo, color) {
   for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
   geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo.index ? geo.toNonIndexed() : geo;
 }
+const personGltf = await gltfLoader.loadAsync('./models/person.glb').catch(err => { console.warn('person.glb unavailable, using boxes', err); return null; });
 function makePerson() {
+  if (!personGltf) return makeBoxPerson();
+  const root = SkeletonUtils.clone(personGltf.scene), g = new THREE.Group(); g.add(root);
+  const cols = { Skin: pick(SKIN), Shirt: pick(SHIRTS), Pants: pick(PANTS), Hair: pick(HAIR), Shoe: pick([0xf2f2ee, 0x222222, 0xd94a4a, 0x4a7fd9, 0xe8b84a]) };
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const arr = Array.isArray(o.material), mats = (arr ? o.material : [o.material]).map(m => { const c = m.clone(); if (cols[c.name] !== undefined) c.color.set(cols[c.name]); return c; });
+    o.material = arr ? mats : mats[0]; o.frustumCulled = false; o.castShadow = HI;
+  });
+  const clips = personGltf.animations, mixer = new THREE.AnimationMixer(root);
+  const walkA = mixer.clipAction(THREE.AnimationClip.findByName(clips, 'Walk') || clips[0]), idleA = mixer.clipAction(THREE.AnimationClip.findByName(clips, 'Idle') || clips[1] || clips[0]);
+  walkA.play(); idleA.play(); walkA.time = Math.random() * walkA.getClip().duration; idleA.time = Math.random() * idleA.getClip().duration;
+  g.scale.setScalar(1.5); g.userData = { mixer, walkA, idleA }; g.traverse(noRay); return g;
+}
+function makeBoxPerson() {
   const g = new THREE.Group(), shirt = pick(SHIRTS), pants = pick(PANTS), skin = pick(SKIN), hair = pick(HAIR);
   const parts = [
     tinted(new THREE.BoxGeometry(0.58, 0.72, 0.34).translate(0, 1.16, 0), shirt),
@@ -785,7 +801,12 @@ function updatePeople(dt) {
         p.rot = lerpAng(p.rot, Math.atan2(dx, dz), Math.min(1, dt * 7)); p.phase += step * 3.1; p.walk += (1 - p.walk) * Math.min(1, dt * 8);
       }
     }
-    const u = p.g.userData, sw = Math.sin(p.phase) * 0.75 * p.walk;
+    const u = p.g.userData;
+    if (u.mixer) {
+      u.walkA.setEffectiveWeight(p.walk); u.idleA.setEffectiveWeight(1 - p.walk); u.walkA.timeScale = p.speed / 2.0; u.mixer.update(dt);
+      p.g.position.set(p.pos.x, 0, p.pos.z); p.g.rotation.y = p.rot; continue;
+    }
+    const sw = Math.sin(p.phase) * 0.75 * p.walk;
     u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw * 0.8; u.armR.rotation.x = sw * 0.8;
     p.g.position.set(p.pos.x, Math.abs(Math.sin(p.phase)) * 0.06 * p.walk, p.pos.z); p.g.rotation.y = p.rot;
   }
