@@ -146,7 +146,12 @@ function flat(geo, mat, y) {
 }
 const disc = (r, mat, y) => flat(new THREE.CircleGeometry(r, 96), mat, y);
 const ring = (r0, r1, mat, y) => flat(new THREE.RingGeometry(r0, r1, 128, 1), mat, y);
-disc(1800, std(0xffffff, { map: noiseTexture('#3b5a39', 60, 256, 260), roughness: 1 }), 0);
+const texLoader = new THREE.TextureLoader();
+function pbrTex(file, rep, srgb = false) {
+  const t = texLoader.load('./tex/' + file); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+disc(1800, std(0xffffff, { map: pbrTex('leafy_grass_diff.jpg', 170, true), normalMap: pbrTex('leafy_grass_nor_gl.jpg', 170), color: 0x9bb98a, roughness: 1 }), 0);
 function wetMap() {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 26; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = 14 + Math.random() * 38, gr = g.createRadialGradient(x, y, 2, x, y, r); gr.addColorStop(0, 'rgba(40,40,40,.95)'); gr.addColorStop(1, 'rgba(40,40,40,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
@@ -157,9 +162,9 @@ function tileTexture(base, line) {
   g.strokeStyle = line; g.lineWidth = 3; g.strokeRect(1.5, 1.5, 125, 125); for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; g.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(70, 3); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
-ring(R_ROAD[0], R_ROAD[1], std(0xffffff, { map: noiseTexture('#2a2d33', 40, 256, 24), roughnessMap: wetMap(), roughness: 1, metalness: 0.15 }), 0.03);
-ring(R_IN_WALK[0], R_IN_WALK[1], std(0xffffff, { map: tileTexture('#8b9288', '#6a7168') }), 0.05);
-ring(R_OUT_WALK[0], R_OUT_WALK[1], std(0xffffff, { map: tileTexture('#8b9288', '#6a7168') }), 0.05);
+ring(R_ROAD[0], R_ROAD[1], std(0xffffff, { map: pbrTex('asphalt_05_diff.jpg', 30, true), normalMap: pbrTex('asphalt_05_nor_gl.jpg', 30), roughnessMap: pbrTex('asphalt_05_rough.jpg', 30), color: 0xb8b8bc, roughness: 0.78, metalness: 0.1 }), 0.03);
+ring(R_IN_WALK[0], R_IN_WALK[1], std(0xffffff, { map: pbrTex('concrete_pavers_diff.jpg', 36, true), normalMap: pbrTex('concrete_pavers_nor_gl.jpg', 36), roughnessMap: pbrTex('concrete_pavers_rough.jpg', 36), color: 0xd8d4cc }), 0.05);
+ring(R_OUT_WALK[0], R_OUT_WALK[1], std(0xffffff, { map: pbrTex('concrete_pavers_diff.jpg', 46, true), normalMap: pbrTex('concrete_pavers_nor_gl.jpg', 46), roughnessMap: pbrTex('concrete_pavers_rough.jpg', 46), color: 0xd8d4cc }), 0.05);
 ring(R_PLAZA, R_PARK, std(0xffffff, { map: noiseTexture('#44683f', 50, 256, 30), roughness: 1 }), 0.04);
 ring(R_FORE[0] - 0.01, R_FORE[1] + 0.01, std(0x3d4a3f), 0.045);
 for (const r of [R_ROAD[0], R_ROAD[1], R_IN_WALK[0], R_OUT_WALK[1]]) ring(r - 0.1, r + 0.14, std(0xb3b8ae), 0.14);
@@ -479,6 +484,7 @@ function makeForecourt(def, T) {
   return g;
 }
 const gltfLoader = new GLTFLoader();
+const bTex = { roofN: pbrTex('clay_roof_tiles_nor_gl.jpg', 1), roofR: pbrTex('clay_roof_tiles_rough.jpg', 1), wallN: pbrTex('white_stucco_nor_gl.jpg', 1), wallR: pbrTex('white_stucco_rough.jpg', 1) };
 { const d = new DRACOLoader(); d.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'); gltfLoader.setDRACOLoader(d); }
 function makeBuilding(def) {
   const T = TYPES[def.building], F = FOOT(T), root = new THREE.Group();
@@ -496,7 +502,9 @@ function makeBuilding(def) {
   if (manifest[def.building]) {
     gltfLoader.loadAsync('./models/' + manifest[def.building]).then(gl => {
       const m = gl.scene; shadowify(m); root.remove(proc); root.add(m);
-      m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); else if (mt.name.startsWith('Ball')) { o.receiveShadow = false; o.material.envMapIntensity = 0.6; } } });
+      m.traverse(o => { if (o.isMesh && o.material) { const mt = o.material; if (mt.name === 'Roof') mt.color.set(def.color); else if (mt.name === 'Accent') mt.color.set(def.accent); else if (mt.name.startsWith('Ball')) { o.receiveShadow = false; o.material.envMapIntensity = 0.6; }
+        if (mt.name === 'Roof') { mt.normalMap = bTex.roofN; mt.roughnessMap = bTex.roofR; mt.normalScale.set(0.9, 0.9); mt.roughness = 0.9; mt.needsUpdate = true; }
+        else if (mt.name === 'Wall' || mt.name === 'WallShade' || mt.name === 'Trim') { mt.normalMap = bTex.wallN; mt.roughnessMap = bTex.wallR; mt.normalScale.set(0.7, 0.7); mt.roughness = 1; mt.needsUpdate = true; } } });
       const a = m.getObjectByName('SignAnchor'); if (a) sign.position.copy(a.position);
     }).catch(err => console.warn('GLB load failed for', def.building, err));
   }

@@ -242,6 +242,15 @@ def finish(name, ox):
                 if not es: break
                 bmesh.ops.subdivide_edges(bm, edges=es, cuts=1, use_grid_fill=True)
         me = bpy.data.meshes.new(name + '_' + key); bm.to_mesh(me); bm.free()
+        if key in ('Wall', 'WallShade', 'Roof', 'Trim', 'Base', 'Accent'):
+            uvl = me.uv_layers.new(name='UVMap')
+            for p in me.polygons:
+                n = p.normal.copy()
+                ax = (n.cross(Vector((0, 0, 1))) if abs(n.z) < 0.95 else Vector((1, 0, 0)))
+                ax.normalize(); ay = n.cross(ax).normalized()
+                for li in p.loop_indices:
+                    co = me.vertices[me.loops[li].vertex_index].co
+                    uvl.data[li].uv = (co.dot(ax) / 4.0, co.dot(ay) / 4.0)
         ob = bpy.data.objects.new(name + '_' + key, me); ob.data.materials.append(MATS[key])
         for p in me.polygons: p.use_smooth = key.startswith('Ball') or key in ('Leaf', 'FlowerA', 'FlowerB')
         me.shade_smooth_by_angle(angle=math.radians(35)) if key not in ('Leaf','FlowerA','FlowerB') and not key.startswith('Ball') and hasattr(me, 'shade_smooth_by_angle') else None
