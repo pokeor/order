@@ -57,6 +57,23 @@
   #joy{position:fixed;inset-inline-end:18px;bottom:calc(160px + env(safe-area-inset-bottom));width:116px;height:116px;border-radius:50%;background:rgba(20,32,27,.55);border:2px solid var(--line);backdrop-filter:blur(4px);z-index:4;touch-action:none;display:none;align-items:center;justify-content:center}
   #joy i{width:52px;height:52px;border-radius:50%;background:rgba(63,190,151,.85);box-shadow:0 4px 14px rgba(0,0,0,.5);transition:transform .05s}
   @media (pointer:coarse){body.walk #joy{display:flex}}
+  body.walk #pov{display:inline-block !important}
+  #chatbar{position:fixed;inset-inline:0;margin-inline:auto;width:min(420px,calc(100vw - 150px));bottom:calc(16px + env(safe-area-inset-bottom));z-index:4;display:none;gap:6px}
+  body.walk #chatbar{display:flex}
+  @media (max-width:760px){#chatbar{bottom:calc(86px + env(safe-area-inset-bottom));width:calc(100vw - 150px);inset-inline-start:12px;margin-inline:0}}
+  #chatbar input{flex:1;min-width:0;background:rgba(20,32,27,.85);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:11px 16px;font-family:inherit;font-size:.9rem;backdrop-filter:blur(6px)}
+  #chatbar input:focus{outline:2px solid var(--accent)}
+  #chatbar button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:0 16px;font-weight:700;cursor:pointer}
+  #chatlog{position:fixed;inset-inline:0;margin-inline:auto;width:min(420px,calc(100vw - 150px));bottom:calc(66px + env(safe-area-inset-bottom));z-index:3;pointer-events:none;display:none;flex-direction:column;gap:4px}
+  body.walk #chatlog{display:flex}
+  @media (max-width:760px){#chatlog{bottom:calc(140px + env(safe-area-inset-bottom));inset-inline-start:12px;margin-inline:0}}
+  .cl{background:rgba(8,16,12,.72);color:var(--ink);border-radius:12px;padding:6px 12px;font-size:.84rem;line-height:1.35;transition:opacity 1.5s;align-self:flex-start;max-width:100%}
+  .cl.old{opacity:0}
+  .cl b{color:var(--gold);font-weight:600}
+  .swrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sw{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .swb{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+  .swb.on{border-color:#fff;transform:scale(1.12)}
   #tip{position:fixed;z-index:6;pointer-events:none;background:rgba(10,20,16,.92);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:12px;font-size:.82rem;line-height:1.4;display:none;max-width:260px}
   #tip b{font-family:'Secular One','Rubik',sans-serif;font-weight:400;color:var(--gold);font-size:1rem}
   .close{margin-inline-start:auto;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;flex:none}
@@ -111,7 +128,7 @@
 <div class="hud-top">
   <div class="hud-row">
     <div class="brand">עיר הפוקימון</div>
-    <div style="display:flex;gap:6px;pointer-events:auto"><button class="back" id="sound" type="button" style="cursor:pointer" aria-label="צליל">🔊</button><button class="back" id="quality" type="button" style="cursor:pointer">איכות</button><a class="back" href="../">לטופס הרגיל ←</a></div>
+    <div style="display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end"><button class="back" id="avatar-btn" type="button" style="cursor:pointer" aria-label="הדמות שלי">👤</button><button class="back" id="pov" type="button" style="cursor:pointer;display:none">🧍 גוף שלישי</button><button class="back" id="online" type="button" style="cursor:default">👥 1</button><button class="back" id="sound" type="button" style="cursor:pointer" aria-label="צליל">🔊</button><button class="back" id="quality" type="button" style="cursor:pointer">איכות</button><a class="back" href="../">לטופס הרגיל ←</a></div>
   </div>
   <div class="views" id="views">
     <button class="chip" data-view="overview" aria-pressed="true">כל העיר</button>
@@ -127,6 +144,9 @@
 <button id="cart-fab" aria-label="פתח עגלה"><span>🛒 עגלה</span><span class="n" id="cart-n">0</span><span class="t" id="cart-t">0 ₪</span></button>
 
 <div id="tip"></div>
+<section class="sheet" id="avatar" hidden></section>
+<div id="chatlog"></div>
+<div id="chatbar"><input id="chat-in" type="text" maxlength="100" placeholder="כתבו הודעה לעיר…" autocomplete="off"><button id="chat-send" type="button">שלח</button></div>
 <canvas id="mini" width="260" height="260" aria-label="מפת העיר"></canvas>
 <div id="joy" aria-hidden="true"><i></i></div>
 <section class="sheet" id="shop" hidden></section>
@@ -139,6 +159,6 @@
   <a href="../">לטופס ההזמנה</a>
 </div>
 
-<script type="module" src="./city.js?v=20261007g"></script>
+<script type="module" src="./city.js?v=20261008b"></script>
 </body>
 </html>
