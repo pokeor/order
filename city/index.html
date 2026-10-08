@@ -12,6 +12,7 @@
     --whatsapp:#25c862;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   @media (prefers-reduced-motion: reduce){.sheet{animation:none}}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:'Rubik','Heebo',system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
   button{font-family:inherit}
@@ -106,6 +107,22 @@
   .msg.err{background:rgba(229,131,105,.15);color:var(--danger)}
   .msg.ok{background:rgba(63,190,151,.15);color:var(--accent)}
   .note{font-size:.76rem;color:var(--ink-soft);text-align:center}
+  .lrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .lrow .thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--panel-2);flex:none}
+  .lrow .lt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .lrow .lt b{font-size:.92rem;overflow:hidden;text-overflow:ellipsis}
+  .lrow .lt span{font-size:.8rem;color:var(--ink-soft)}
+  .btn.sm{flex:none;padding:7px 10px;font-size:.78rem}
+  .embed{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
+  .embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .lnk{background:none;border:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+  .dt{border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:10px}
+  .dt>summary{cursor:pointer;font-weight:600;font-size:.9rem}
+  .dt[open]>summary{margin-bottom:6px}
+  .stat{border-radius:10px;padding:9px 12px;background:var(--panel-2);font-size:.88rem}
+  .st-approved{border:1px solid var(--accent)} .st-pending{border:1px solid var(--gold)} .st-rejected,.st-suspended{border:1px solid var(--danger)}
+  .note a{color:var(--accent)}
+
 
   #loading{position:fixed;inset:0;z-index:9;background:var(--bg);display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;transition:opacity .5s}
   #loading.gone{opacity:0;pointer-events:none}
@@ -128,13 +145,14 @@
 <div class="hud-top">
   <div class="hud-row">
     <div class="brand">עיר הפוקימון</div>
-    <div style="display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end"><button class="back" id="avatar-btn" type="button" style="cursor:pointer" aria-label="הדמות שלי">👤</button><button class="back" id="pov" type="button" style="cursor:pointer;display:none">🧍 גוף שלישי</button><button class="back" id="online" type="button" style="cursor:default">👥 1</button><button class="back" id="sound" type="button" style="cursor:pointer" aria-label="צליל">🔊</button><button class="back" id="quality" type="button" style="cursor:pointer">איכות</button><a class="back" href="../">לטופס הרגיל ←</a></div>
+    <div style="display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end"><button class="back" id="market-btn" type="button" style="cursor:pointer">🏪 חנויות</button><button class="back" id="avatar-btn" type="button" style="cursor:pointer" aria-label="הדמות שלי">👤</button><button class="back" id="pov" type="button" style="cursor:pointer;display:none">🧍 גוף שלישי</button><button class="back" id="online" type="button" style="cursor:default">👥 1</button><button class="back" id="sound" type="button" style="cursor:pointer" aria-label="צליל">🔊</button><button class="back" id="quality" type="button" style="cursor:pointer">איכות</button><a class="back" href="../">לטופס הרגיל ←</a></div>
   </div>
   <div class="views" id="views">
     <button class="chip" data-view="overview" aria-pressed="true">כל העיר</button>
     <button class="chip" data-view="preorder" aria-pressed="false">דלתא ריין · הזמנה מוקדמת</button>
     <button class="chip" data-view="instock" aria-pressed="false">זמין במלאי</button>
     <button class="chip" data-view="tower" aria-pressed="false">מגדל ההזמנות</button>
+    <button class="chip" data-view="market" aria-pressed="false">🏪 השוק</button>
     <button class="chip" id="walk-btn" aria-pressed="false">🚶 טיול ברחוב</button>
   </div>
 </div>
@@ -159,6 +177,6 @@
   <a href="../">לטופס ההזמנה</a>
 </div>
 
-<script type="module" src="./city.js?v=20261008b"></script>
+<script type="module" src="./city.js?v=20261008c"></script>
 </body>
 </html>

@@ -14,6 +14,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createNet } from './net.js';
+import { createMarket } from './market.js';
 
 /* ======================================================================
    עיר הפוקימון v3 — עיר עגולה.
@@ -84,6 +85,7 @@ function setQty(pid, units, cases) {
 function updateFab() { $('cart-n').textContent = cartCount(); $('cart-t').textContent = fmt(cartTotal()) + ' ₪'; }
 
 /* ---------- geometry of the ring city ---------- */
+const STALL_R = 35.5, LOTS = 20, STALL_ANG = k => k * 18 + 9;
 const R_PLAZA = 27, R_PARK = 44, R_IN_WALK = [44, 50], R_ROAD = [50, 70], R_OUT_WALK = [70, 76], R_FORE = [76, 84], R_FRONT = 84;
 const R_ROAD_MID = 60, R_LANE_IN = 47, R_LANE_OUT = 73;
 const polar = (r, a) => new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a));
@@ -712,7 +714,7 @@ const skySpots = [];
 {
   const trees = [];
   for (let k = 0; k < 20; k++) { const a = deg(k * 18); trees.push({ p: polar(R_FORE[0] + 1, a), s: 0.9 + rnd() * 0.25, t: rnd() < 0.5 }); trees.push({ p: polar(R_IN_WALK[0] + 0.8, a), s: 0.8 + rnd() * 0.2, t: rnd() < 0.5 }); }
-  for (let i = 0; i < 46; i++) { const a = rnd() * Math.PI * 2, r = R_PLAZA + 3 + rnd() * (R_PARK - R_PLAZA - 6); trees.push({ p: polar(r, a), s: 0.9 + rnd() * 0.8, t: rnd() < 0.4 }); }
+  for (let i = 0; i < 46; i++) { const a = rnd() * Math.PI * 2, r = R_PLAZA + 3 + rnd() * (R_PARK - R_PLAZA - 6), tp = polar(r, a); if (Array.from({ length: LOTS }, (_, k) => polar(STALL_R, deg(STALL_ANG(k)))).some(q => Math.hypot(q.x - tp.x, q.z - tp.z) < 6.5)) continue; trees.push({ p: tp, s: 0.9 + rnd() * 0.8, t: rnd() < 0.4 }); }
   for (let i = 0; i < Q.treesFar; i++) { const a = rnd() * Math.PI * 2, r = 100 + rnd() * 24; trees.push({ p: polar(r, a), s: 1 + rnd() * 1.2, t: rnd() < 0.55 }); }
   const n = trees.length;
   const trunkGeo = new THREE.CylinderGeometry(0.26, 0.38, 1.8, 6); trunkGeo.translate(0, 0.9, 0);
@@ -1049,7 +1051,8 @@ const VIEWS = {
   overview: () => ({ t: new THREE.Vector3(0, 0, 0), off: new THREE.Vector3(0, 250, 300) }),
   preorder: () => ({ t: arcCentre('preorder'), off: new THREE.Vector3(-60, 95, 110) }),
   instock:  () => ({ t: arcCentre('instock'), off: new THREE.Vector3(70, 105, 125) }),
-  tower:    () => ({ t: new THREE.Vector3(0, 20, 0), off: new THREE.Vector3(0, 22, 88) })
+  tower:    () => ({ t: new THREE.Vector3(0, 20, 0), off: new THREE.Vector3(0, 22, 88) }),
+  market:   () => ({ t: new THREE.Vector3(0, 0, 0), off: new THREE.Vector3(0, 78, 96) })
 };
 const aspectScale = () => { const a = innerWidth / innerHeight; return a < 1 ? Math.min(2.6, Math.pow(1 / a, 0.85)) : 1; };
 const walk = { firstPerson: false, on: false, yaw: 0, pitch: -0.14, pos: new THREE.Vector3(), keys: {}, joy: { x: 0, y: 0 }, goto: null, bob: 0 };
@@ -1069,6 +1072,10 @@ function flyToBuilding(pid) {
   tang.multiplyScalar(dg > 0 ? -1 : 1);
   flyTo(t, t.clone().addScaledVector(b.userData.dirIn, 70 * k).addScaledVector(tang, 16 * k).add(new THREE.Vector3(0, 36 * k, 0)), 950); setChips(null);
 }
+const market = createMarket({ THREE, mergeGeometries, scene, net, $, fmt, polar, deg, FONT_D, FONT_B, HI, STALL_R, STALL_ANG, LOTS, flyTo, walk, animators,
+  sfx: { pop: () => sfx.pop(), success: () => sfx.success() }, closeOthers: () => { closeShop(); closeCheckout(); avatarEl.hidden = true; } });
+if (!market.enabled) { $('market-btn').style.display = 'none'; document.querySelector('[data-view="market"]').style.display = 'none'; }
+$('market-btn').addEventListener('click', () => market.toggleAccount());
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   if (composer) { composer.setSize(w, h); composer.setPixelRatio(Math.min(devicePixelRatio || 1, Q.pr)); if (gradePass) gradePass.uniforms.uRes.value.set(w * Math.min(devicePixelRatio || 1, Q.pr), h * Math.min(devicePixelRatio || 1, Q.pr)); }
@@ -1160,9 +1167,9 @@ mini.addEventListener('pointerdown', e => {
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 function setNdc(ev) { const r = canvas.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
 function pickAt(ev) {
-  setNdc(ev); const hit = ray.intersectObjects([tower, ...buildingRoots], true)[0]; if (!hit) return null;
-  let o = hit.object; while (o && !(o.userData && (o.userData.pid || o.userData.tower))) o = o.parent;
-  return o ? (o.userData.tower ? 'tower' : o.userData.pid) : null;
+  setNdc(ev); const hit = ray.intersectObjects([tower, ...buildingRoots, market.group], true)[0]; if (!hit) return null;
+  let o = hit.object; while (o && !(o.userData && (o.userData.pid || o.userData.tower || o.userData.shopId))) o = o.parent;
+  return o ? (o.userData.tower ? 'tower' : o.userData.shopId ? 'shop:' + o.userData.shopId : o.userData.pid) : null;
 }
 let down = null, hovered = null, lastPtr = null, selectedPid = null;
 const tip = $('tip');
@@ -1174,6 +1181,7 @@ canvas.addEventListener('pointerup', e => {
   if (moved < 8 && dt < 500) {
     const pid = pickAt(e);
     if (pid === 'tower') { closeShop(); flyToView('tower', 900); openCheckout(); }
+    else if (pid && pid.startsWith('shop:')) market.openShop(pid.slice(5));
     else if (pid) openShop(pid);
     else if (walk.on) { setNdc(e); const pt = new THREE.Vector3(); if (ray.ray.intersectPlane(groundPlane, pt)) walk.goto = clampRing(pt); }
   }
@@ -1187,6 +1195,7 @@ canvas.addEventListener('pointermove', e => {
     hovered = pid; if (pid && buildings[pid]) buildings[pid].userData.hoverT = 1; canvas.style.cursor = pid ? 'pointer' : (walk.on ? 'crosshair' : 'grab');
   }
   if (pid && P[pid]) { const p = P[pid]; tip.innerHTML = `${p.name}<br>יחידה <b>${fmt(p.unitPrice)} ₪</b> · קייס <b>${fmt(p.casePrice)} ₪</b>`; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 270, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
+  else if (pid && pid.startsWith('shop:') && market.tooltip(pid.slice(5))) { tip.innerHTML = market.tooltip(pid.slice(5)); tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 270, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
   else if (pid === 'tower') { tip.innerHTML = 'מגדל ההזמנות<br>לחצו לסיום ושליחה'; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 270, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
   else tip.style.display = 'none';
 });
@@ -1201,7 +1210,7 @@ function selectBuilding(pid) {
   marker.position.set(b.position.x, 0, b.position.z); marker.scale.set(r, 1, r); marker.visible = true;
 }
 function openShop(pid) {
-  sfx.pop(); const p = P[pid]; closeCheckout(); selectBuilding(pid); if (!walk.on) flyToBuilding(pid);
+  sfx.pop(); const p = P[pid]; market.close(); closeCheckout(); selectBuilding(pid); if (!walk.on) flyToBuilding(pid);
   const q = qtyOf(pid);
   shopEl.innerHTML = `
     <div class="sheet-head">
@@ -1251,7 +1260,7 @@ function renderLines() {
   $('c-total').textContent = fmt(cartTotal()) + ' ₪';
 }
 function openCheckout() {
-  closeShop(); let saved = {}; try { saved = JSON.parse(localStorage.getItem('dr_customer') || '{}') || {}; } catch (e) {}
+  market.close(); closeShop(); let saved = {}; try { saved = JSON.parse(localStorage.getItem('dr_customer') || '{}') || {}; } catch (e) {}
   coEl.innerHTML = `
     <div class="sheet-head"><h2 class="sheet-title" style="flex:1;align-self:center">העגלה שלך</h2><button class="close" id="co-x" aria-label="סגור">✕</button></div>
     <div class="lines" id="c-lines"></div>
@@ -1367,4 +1376,4 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 requestAnimationFrame(() => requestAnimationFrame(() => { $('bar').style.width = '100%'; setTimeout(() => $('loading').classList.add('gone'), 250); }));
-window.cityDebug = { net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };
+window.cityDebug = { market, net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };
