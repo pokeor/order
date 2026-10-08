@@ -102,6 +102,8 @@
   .field input{font-family:inherit;font-size:.95rem;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink)}
   .field input:focus{outline:2px solid var(--accent);outline-offset:-1px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid2>*{min-width:0}
+  .field input[type=file]{width:100%;min-width:0;font-size:.78rem;padding:8px}
   .msg{font-size:.84rem;border-radius:9px;padding:9px 12px;display:none}
   .msg.show{display:block}
   .msg.err{background:rgba(229,131,105,.15);color:var(--danger)}
@@ -177,6 +179,6 @@
   <a href="../">לטופס ההזמנה</a>
 </div>
 
-<script type="module" src="./city.js?v=20261008c"></script>
+<script type="module" src="./city.js?v=20261008d"></script>
 </body>
 </html>
