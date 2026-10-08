@@ -42,7 +42,7 @@ const authErr = e => {
 };
 
 export function createMarket(ctx) {
-  const { THREE, mergeGeometries, scene, net, $, fmt, polar, deg, FONT_D, FONT_B, HI, STALL_R, STALL_ANG, LOTS, flyTo, walk, closeOthers, sfx, animators } = ctx;
+  const { THREE, mergeGeometries, scene, net, $, fmt, polar, deg, FONT_D, FONT_B, HI, stallSlot, LOTS, flyTo, walk, closeOthers, sfx, animators } = ctx;
   const sb = net.sb || null, money = n => fmt(n) + ' ₪';
   const group = new THREE.Group(); scene.add(group);
   const stalls = new Map(); let shops = [], user = null, isAdmin = false, cart = {}, mode = null;
@@ -92,13 +92,35 @@ export function createMarket(ctx) {
       const lv = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.82), new THREE.MeshBasicMaterial({ map: liveTex(), toneMapped: false, transparent: true, side: THREE.DoubleSide }));
       lv.position.set(0, 5.75, -1.7); g.add(lv); g.userData.live = lv;
     }
-    const a = deg(STALL_ANG(s.lot)), p = polar(STALL_R, a);
-    g.position.copy(p); g.rotation.y = Math.PI / 2 - a;
-    g.userData.shopId = s.id; g.userData.key = [s.name, s.tagline, s.color, s.lot, !!s.live_url].join('|'); g.userData.out = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+    const sl = stallSlot(s.lot); g.position.set(sl.x, 0, sl.z); g.rotation.y = sl.ry;
+    g.userData.shopId = s.id; g.userData.key = [s.name, s.tagline, s.color, s.lot, !!s.live_url].join('|'); g.userData.out = new THREE.Vector3(Math.sin(sl.ry), 0, Math.cos(sl.ry));
     return g;
   }
   function disposeStall(g) { group.remove(g); g.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material !== stallMat) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } } }); }
+  /* empty lots: pad + signpost, click opens the shop request form */
+  const pads = (() => {
+    const parts = [], add = (w, h, d, x, y, z, col) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); const n = g.attributes.position.count, a = new Float32Array(n * 3), c = new THREE.Color(col); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); parts.push(g); };
+    add(5.8, 0.12, 4.0, 0, 0.06, 0, 0xc9bfa3); add(0.14, 1.9, 0.14, -1.2, 0.95, 1.2, 0x6d5a45); add(0.14, 1.9, 0.14, 1.2, 0.95, 1.2, 0x6d5a45);
+    const m = new THREE.InstancedMesh(mergeGeometries(parts, false), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), LOTS); parts.forEach(g => g.dispose()); m.receiveShadow = true; return m;
+  })();
+  const emptyTex = (() => { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 192; const g = cv.getContext('2d'); g.fillStyle = '#fff6d6'; g.fillRect(0, 0, 512, 192); g.strokeStyle = '#d9a93a'; g.lineWidth = 12; g.strokeRect(6, 6, 500, 180);
+    g.direction = 'rtl'; g.textAlign = 'center'; g.fillStyle = '#1b2a22'; g.font = `400 64px ${FONT_D}`; g.fillText('מגרש פנוי', 256, 92); g.fillStyle = '#b8791a'; g.font = `600 42px ${FONT_B}`; g.fillText('פתחו כאן חנות', 256, 150);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; })();
+  const signs = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.7, 1.0), new THREE.MeshBasicMaterial({ map: emptyTex, side: THREE.DoubleSide, toneMapped: false }), LOTS);
+  group.add(pads); group.add(signs);
+  const padM = [], signM = [], zeroM = new THREE.Matrix4().makeScale(0, 0, 0), dm = new THREE.Object3D();
+  for (let k = 0; k < LOTS; k++) {
+    const sl = stallSlot(k); dm.position.set(sl.x, 0, sl.z); dm.rotation.set(0, sl.ry, 0); dm.scale.set(1, 1, 1); dm.updateMatrix(); padM.push(dm.matrix.clone());
+    dm.translateY(1.95); dm.translateZ(1.2); dm.updateMatrix(); signM.push(dm.matrix.clone());
+  }
+  let taken = new Set();
+  function syncPads() { for (let k = 0; k < LOTS; k++) { pads.setMatrixAt(k, taken.has(k) ? zeroM : padM[k]); signs.setMatrixAt(k, taken.has(k) ? zeroM : signM[k]); } pads.instanceMatrix.needsUpdate = signs.instanceMatrix.needsUpdate = true; }
+  syncPads();
+  api.pads = pads; api.signs = signs;
+  api.lotAt = hit => { if (hit.object !== pads && hit.object !== signs) return null; const k = hit.instanceId; return k !== undefined && !taken.has(k) ? k : -1; };
+  api.occupied = () => [...taken];
   function syncStalls() {
+    taken = new Set(shops.filter(s => s.lot != null && s.lot >= 0 && s.lot < LOTS).map(s => s.lot)); syncPads();
     const seen = new Set();
     for (const s of shops) {
       if (s.lot == null || s.lot < 0 || s.lot >= LOTS) continue; seen.add(s.id);
@@ -204,6 +226,7 @@ export function createMarket(ctx) {
     if (isAdmin) wireAdmin(all.data || []);
     if (note) msg('ok', note);
   }
+  api.showAccount = () => showAccount();
   api.toggleAccount = () => { if (api.isOpen() && mode === 'acct') close(); else showAccount(); };
 
   function renderAuth(note) {
