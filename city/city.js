@@ -1083,11 +1083,14 @@ function rebuildPeer(p) {
 function removePeer(p) { if (p.av) scene.remove(p.av.root); peers.delete(p.id); }
 const num = v => (Number.isFinite(v) ? v : 0);
 const hello = () => net.send({ t: 'hello', name: me.name, look: me.look });
+let lastHelloReply = 0;
 net.on('msg', m => {
   if (!m || m.id === net.id || typeof m.id !== 'string') return; const now = performance.now(); let p = peers.get(m.id);
-  if (!p) { p = { id: m.id, name: 'אורח', look: null, av: null, x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, mv: 0, seen: now, shown: false, walkW: 0, spawned: false }; peers.set(m.id, p); hello(); }
+  if (!p && peers.size >= 40) return;                                        // flood guard: at most 40 remote avatars
+  if (p) { const gap = m.t === 'chat' ? 1000 : m.t === 'hello' ? 1500 : m.t === 'state' ? 60 : 0; if (gap && now - (p.last[m.t] || 0) < gap) return; p.last[m.t] = now; }
+  if (!p) { p = { id: m.id, last: {}, name: 'אורח', look: null, av: null, x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, mv: 0, seen: now, shown: false, walkW: 0, spawned: false }; peers.set(m.id, p); if (now - lastHelloReply > 3000) { lastHelloReply = now; hello(); } }
   p.seen = now;
-  if (m.t === 'hello') { const nm = cleanName(m.name) || 'אורח', lk = cleanLook(m.look); if (!p.look || p.name !== nm || JSON.stringify(p.look) !== JSON.stringify(lk)) { p.name = nm; p.look = lk; rebuildPeer(p); } }
+  if (m.t === 'hello') { const nm = cleanName(m.name) || 'אורח', lk = cleanLook(m.look); if (!p.look || p.name !== nm || JSON.stringify(p.look) !== JSON.stringify(lk)) { if (p.look && now - (p.rebuilt || 0) < 3000) return; p.rebuilt = now; p.name = nm; p.look = lk; rebuildPeer(p); } }
   else if (m.t === 'state') {
     const cp = clampRing(new THREE.Vector3(num(m.x), 0, num(m.z))); p.tx = cp.x; p.tz = cp.z; p.tyaw = num(m.yaw); p.mv = m.mv ? 1 : 0; p.shown = !m.hide;
     if (!p.spawned) { p.x = p.tx; p.z = p.tz; p.yaw = p.tyaw; p.spawned = true; }
@@ -1565,4 +1568,4 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 requestAnimationFrame(() => requestAnimationFrame(() => { $('bar').style.width = '100%'; setTimeout(() => $('loading').classList.add('gone'), 250); }));
-window.cityDebug = { walk, market, net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };
+if (new URLSearchParams(location.search).has('debug')) window.cityDebug = { walk, market, net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };
