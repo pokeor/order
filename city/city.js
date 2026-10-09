@@ -749,11 +749,11 @@ const mkAnim = {};
     for (const sx of [-1, 1]) { put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 12, 14), pil), sx * 8.2, 6, 0); put(g, new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.8, 2.6), gold), sx * 8.2, 12.3, 0); }
     put(g, new THREE.Mesh(new THREE.BoxGeometry(18.6, 1.1, 1.8), dark), 0, 12.9, 0); put(g, new THREE.Mesh(new THREE.BoxGeometry(19, 0.28, 2.1), basic(0xe8b84a)), 0, 13.6, 0);
     put(g, new THREE.Mesh(new THREE.BoxGeometry(15.4, 4.2, 0.5), dark), 0, 16.0, 0);
-    const mt = new THREE.MeshBasicMaterial({ map: archTex(title, sub), toneMapped: false, transparent: true });
+    const mt = new THREE.MeshBasicMaterial({ map: archTex(title, sub), toneMapped: false, transparent: true }); g.userData.neon = mt;
     for (const d of [1, -1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(15, 3.75), mt); pl.position.set(0, 16.0, d * 0.28); if (d < 0) pl.rotation.y = Math.PI; g.add(pl); }
     g.traverse(o => { if (o.isMesh && !o.material.isMeshBasicMaterial) o.castShadow = true; }); scene.add(g); return g;
   }
-  arch(103, 'רובע השוק', 'חנויות הקהילה · לייבים · מציאות'); arch(MK.cz - MK.r + 2.5, 'ברוכים הבאים', 'כל דוכן — חנות של מישהו מהעיר', 0.82);
+  const gate = arch(104, 'רובע השוק', 'חנויות הקהילה · לייבים · מציאות', 1.9); mkAnim.gateMat = gate.userData.neon; arch(MK.cz - MK.r + 2.5, 'ברוכים הבאים', 'כל דוכן — חנות של מישהו מהעיר', 0.82);
   // boulevard lamps
   { const L = []; for (const z of [110, 122, 143]) for (const sx of [-1, 1]) L.push({ x: sx * (CORR_HW + 1.1), z });
     const pg = new THREE.CylinderGeometry(0.1, 0.15, 6, 8); pg.translate(0, 3, 0);
@@ -794,7 +794,24 @@ const mkAnim = {};
     put(ball, new THREE.Mesh(new THREE.CylinderGeometry(3.34, 3.34, 0.5, 40), std(0x1b1b1f, { roughness: 0.5 })));
     const bt = put(ball, new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.4, 24), std(0xffffff, { roughness: 0.2 })), 0, 0, 3.3); bt.rotation.x = Math.PI / 2;
     g.add(ball); g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); noRay(g); g.traverse(noRay); scene.add(g); mkAnim.ball = ball; }
-  animators.push((now) => { if (mkAnim.ball) mkAnim.ball.rotation.y = now * 0.0006; if (mkAnim.flags) mkAnim.flags.position.y = Math.sin(now * 0.002) * 0.03; });
+  // --- make the entrance impossible to miss: golden arrows from the plaza, light beam, floating sign, plaza signpost ---
+  { const sh = new THREE.Shape(); sh.moveTo(-1.9, -1); sh.lineTo(0, 0.7); sh.lineTo(1.9, -1); sh.lineTo(1.9, -1.9); sh.lineTo(0, -0.2); sh.lineTo(-1.9, -1.9); sh.closePath();
+    const cg = new THREE.ShapeGeometry(sh); cg.rotateX(Math.PI / 2);
+    const zs = []; for (let z = 32; z <= 146; z += 6) { if (z > 100 && z < 106) continue; zs.push(z); }
+    const ch = new THREE.InstancedMesh(cg, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }), zs.length);
+    zs.forEach((z, i) => { m4.makeTranslation(0, 0.13, z); ch.setMatrixAt(i, m4); ch.setColorAt(i, new THREE.Color(0xe8b84a)); }); noRay(ch); scene.add(ch);
+    const tint = new THREE.Color(), gold = new THREE.Color(0xffc83a); mkAnim.chev = (now) => { for (let i = 0; i < zs.length; i++) { const k = 0.25 + 0.75 * Math.max(0, Math.sin(now * 0.0045 - i * 0.6)); tint.copy(gold).multiplyScalar(k * 1.5); ch.setColorAt(i, tint); } ch.instanceColor.needsUpdate = true; }; }
+  { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 256; const g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(255,200,58,0)'); gr.addColorStop(1, 'rgba(255,200,58,.9)'); g.fillStyle = gr; g.fillRect(0, 0, 16, 256);
+    const bm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, opacity: 0.55, fog: false });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 2.4, 96, 20, 1, true), bm); beam.position.set(MK.cx, 62, MK.cz); noRay(beam); scene.add(beam); mkAnim.beam = bm;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: neonTexture('🏪 רובע השוק', 'חנויות הקהילה · לייבים', '#ffd23a'), toneMapped: false, fog: false })); sp.scale.set(34, 15.9, 1); sp.position.set(MK.cx, 66, MK.cz); noRay(sp); scene.add(sp); mkAnim.sp = sp; }
+  { const g = new THREE.Group(); g.position.set(0, 0, 31);
+    put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 5.4, 8), std(0x2b3430, { metalness: 0.6 })), -3.2, 2.7, 0); put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 5.4, 8), std(0x2b3430, { metalness: 0.6 })), 3.2, 2.7, 0);
+    const mt = new THREE.MeshBasicMaterial({ map: makeGateTexture('רובע השוק', 'עקבו אחרי החצים הזהובים'), toneMapped: false, transparent: true });
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.9), mt); pl.position.set(0, 5.2, 0); pl.rotation.y = Math.PI; g.add(pl);
+    const bk = new THREE.Mesh(new THREE.BoxGeometry(7.8, 2.1, 0.2), std(0x14201b)); bk.position.set(0, 5.2, 0.14); g.add(bk);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(g); }
+  animators.push((now) => { if (mkAnim.chev) mkAnim.chev(now); if (mkAnim.beam) mkAnim.beam.opacity = (0.42 + 0.18 * Math.sin(now * 0.002)) * clamp((Math.hypot(camera.position.x - MK.cx, camera.position.z - MK.cz) - 35) / 45, 0, 1); if (mkAnim.gateMat) mkAnim.gateMat.color.setScalar(0.9 + 0.1 * Math.sin(now * 0.005)); if (mkAnim.sp) mkAnim.sp.position.y = 66 + Math.sin(now * 0.0015) * 1.2; if (mkAnim.ball) mkAnim.ball.rotation.y = now * 0.0006; if (mkAnim.flags) mkAnim.flags.position.y = Math.sin(now * 0.002) * 0.03; });
 }
 
 /* ---------- trees, lamps, benches ---------- */
@@ -858,35 +875,50 @@ function tinted(geo, color) {
   for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
   geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo.index ? geo.toNonIndexed() : geo;
 }
-const personGltf = await gltfLoader.loadAsync('./models/person.glb' + MV).catch(err => { console.warn('person.glb unavailable, using boxes', err); return null; });
-const PERSON_KEYS = ['Skin', 'Shirt', 'Pants', 'Hair', 'Shoe'];
-if (personGltf) { // one skinned mesh per person (1 draw call): primitives merged, material id kept per vertex
+const PERSON_KEYS = ['Skin', 'Shirt', 'Pants', 'Hair', 'Shoe', 'Accent', 'Eye', 'Pupil', 'Lip'];
+const ACCENTS = [0xe8b84a, 0xd94a4a, 0x3fbe97, 0xf2f2ee, 0x9a5ad9, 0x4a7fd9];
+function mergePerson(gltf) { // one skinned mesh per person (1 draw call): primitives merged, material id kept per vertex
   const geos = [], olds = []; let first = null, parent = null;
-  personGltf.scene.traverse(o => { if (o.isSkinnedMesh) { first = first || o; parent = parent || o.parent; olds.push(o); } });
+  gltf.scene.traverse(o => { if (o.isSkinnedMesh) { first = first || o; parent = parent || o.parent; olds.push(o); } });
   for (const o of olds) {
     const g = o.geometry.clone(), n = g.attributes.position.count;
     if (!g.attributes.normal) g.computeVertexNormals();
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(k)) g.deleteAttribute(k);
-    g.setAttribute('mid', new THREE.BufferAttribute(new Float32Array(n).fill(Math.max(0, PERSON_KEYS.indexOf(o.material.name))), 1)); geos.push(g);
+    g.setAttribute('mid', new THREE.BufferAttribute(new Float32Array(n).fill(Math.max(0, PERSON_KEYS.indexOf(o.material.name.replace(/\.\d+$/, '')))), 1)); geos.push(g);
   }
   const merged = new THREE.SkinnedMesh(mergeGeometries(geos, false), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }));
   for (const o of olds) o.parent.remove(o);
   parent.add(merged); merged.bind(first.skeleton, first.bindMatrix); merged.frustumCulled = false;
 }
-function makePerson(look) {
-  if (!personGltf) return makeBoxPerson();
-  const root = SkeletonUtils.clone(personGltf.scene), g = new THREE.Group(); g.add(root);
-  const pal = (look ? [look.skin, look.shirt, look.pants, look.hair, look.shoe] : [pick(SKIN), pick(SHIRTS), pick(PANTS), pick(HAIR), pick([0xf2f2ee, 0x222222, 0xd94a4a, 0x4a7fd9, 0xe8b84a])]).map(h => new THREE.Color(h));
+const personVariants = [];
+{
+  const meta = await fetch('./models/people.json' + MV).then(r => r.json()).catch(() => null), files = meta ? meta.variants : [];
+  const gl = await Promise.all(files.map(v => gltfLoader.loadAsync('./models/' + v.file + MV).catch(err => { console.warn('person model failed', v.file, err); return null; })));
+  gl.forEach((gltf, i) => { if (gltf) { mergePerson(gltf); personVariants.push({ gltf, scale: files[i].scale || 1 }); } });
+}
+const NBODIES = Math.max(1, personVariants.length);
+function makePerson(look, vi) {
+  if (!personVariants.length) return makeBoxPerson();
+  const body = (vi !== undefined && vi !== null ? vi : Math.floor(Math.random() * NBODIES)) % NBODIES, V = personVariants[body];
+  const root = SkeletonUtils.clone(V.gltf.scene), g = new THREE.Group(); g.add(root);
+  const base = look ? [look.skin, look.shirt, look.pants, look.hair, look.shoe] : [pick(SKIN), pick(SHIRTS), pick(PANTS), pick(HAIR), pick([0xf2f2ee, 0x222222, 0xd94a4a, 0x4a7fd9, 0xe8b84a])];
+  const pal = base.map(h => new THREE.Color(h));
+  pal.push(look ? pal[1].clone().offsetHSL(0.07, 0.05, -0.2) : new THREE.Color(pick(ACCENTS)), new THREE.Color(0xf4f4f0), new THREE.Color(0x15151a), pal[0].clone().lerp(new THREE.Color(0xb5504a), 0.45));
   root.traverse(o => {
     if (!o.isSkinnedMesh) return; const geo = o.geometry.clone(), mid = geo.attributes.mid.array, col = new Float32Array(mid.length * 3);
     for (let i = 0; i < mid.length; i++) { const c = pal[mid[i]]; col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); o.geometry = geo; o.frustumCulled = false; o.castShadow = HI;
   });
-  const clips = personGltf.animations, mixer = new THREE.AnimationMixer(root);
-  const walkA = mixer.clipAction(THREE.AnimationClip.findByName(clips, 'Walk') || clips[0]), idleA = mixer.clipAction(THREE.AnimationClip.findByName(clips, 'Idle') || clips[1] || clips[0]);
-  walkA.play(); idleA.play(); walkA.time = Math.random() * walkA.getClip().duration; idleA.time = Math.random() * idleA.getClip().duration;
-  g.scale.setScalar(1.5); g.userData = { mixer, walkA, idleA }; g.traverse(noRay); return g;
+  const clips = V.gltf.animations, mixer = new THREE.AnimationMixer(root), act = n => mixer.clipAction(THREE.AnimationClip.findByName(clips, n) || clips[0]);
+  const walkA = act('Walk'), idleA = act('Idle'), waveA = act('Wave'), browseA = act('Browse');
+  for (const a of [walkA, idleA, waveA, browseA]) { a.play(); a.time = Math.random() * a.getClip().duration; }
+  waveA.setEffectiveWeight(0); browseA.setEffectiveWeight(0);
+  g.scale.setScalar(1.5 * V.scale); g.userData = { mixer, walkA, idleA, waveA, browseA, body, wv: 0, waveUntil: 0 }; g.traverse(noRay); return g;
+}
+function setAnim(u, walkW, brW, dt) { // blend Walk / Idle / Browse / Wave
+  const now = performance.now(), rest = 1 - walkW; u.wv += ((now < u.waveUntil ? 1 : 0) - u.wv) * Math.min(1, dt * 7);
+  u.walkA.setEffectiveWeight(walkW); u.idleA.setEffectiveWeight(rest * (1 - brW) * (1 - u.wv)); u.browseA.setEffectiveWeight(rest * brW * (1 - u.wv)); u.waveA.setEffectiveWeight(rest * u.wv); u.mixer.update(dt);
 }
 function makeBoxPerson() {
   const g = new THREE.Group(), shirt = pick(SHIRTS), pants = pick(PANTS), skin = pick(SKIN), hair = pick(HAIR);
@@ -970,7 +1002,7 @@ function updatePeople(dt) {
     }
     const u = p.g.userData;
     if (u.mixer) {
-      u.walkA.setEffectiveWeight(p.walk); u.idleA.setEffectiveWeight(1 - p.walk); u.walkA.timeScale = p.speed / 2.0; u.mixer.update(dt);
+      p.br = (p.br || 0) + (((p.wait > 0 && p.face !== undefined) ? 1 : 0) - (p.br || 0)) * Math.min(1, dt * 4); u.walkA.timeScale = p.speed / 2.0; setAnim(u, p.walk, p.br, dt);
       p.g.position.set(p.pos.x, 0, p.pos.z); p.g.rotation.y = p.rot; continue;
     }
     const sw = Math.sin(p.phase) * 0.75 * p.walk;
@@ -984,9 +1016,9 @@ const net = await createNet();
 const SHOES = [0xf2f2ee, 0x222222, 0xd94a4a, 0x4a7fd9, 0xe8b84a];
 const LOOKS = { skin: SKIN, shirt: SHIRTS, pants: PANTS, hair: HAIR, shoe: SHOES };
 const rpick = a => a[Math.floor(Math.random() * a.length)];
-const randomLook = () => ({ skin: rpick(SKIN), shirt: rpick(SHIRTS), pants: rpick(PANTS), hair: rpick(HAIR), shoe: rpick(SHOES) });
+const randomLook = () => ({ skin: rpick(SKIN), shirt: rpick(SHIRTS), pants: rpick(PANTS), hair: rpick(HAIR), shoe: rpick(SHOES), body: Math.floor(Math.random() * NBODIES) });
 const cleanName = t => String(t || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14);
-const cleanLook = l => { const o = {}, ok = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff; for (const k of ['skin', 'shirt', 'pants', 'hair', 'shoe']) o[k] = l && ok(l[k]) ? l[k] : LOOKS[k][0]; return o; };
+const cleanLook = l => { const o = {}, ok = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff; for (const k of ['skin', 'shirt', 'pants', 'hair', 'shoe']) o[k] = l && ok(l[k]) ? l[k] : LOOKS[k][0]; o.body = l && Number.isInteger(l.body) && l.body >= 0 && l.body < 6 ? l.body : ((o.shirt ^ o.hair) >>> 0) % 6; return o; };
 const cleanText = t => String(t || '').replace(/https?:\/\/\S+|www\.\S+/gi, '[קישור]').replace(/[<>]/g, '').trim().slice(0, 100);
 const me = (() => { let sv = null; try { sv = JSON.parse(localStorage.getItem('dr_avatar') || 'null'); } catch (e) {} return { name: cleanName(sv && sv.name) || 'אורח-' + net.id.slice(0, 3).toUpperCase(), look: cleanLook(sv ? sv.look : randomLook()), av: null }; })();
 const saveMe = () => { try { localStorage.setItem('dr_avatar', JSON.stringify({ name: me.name, look: me.look })); } catch (e) {} };
@@ -1011,15 +1043,16 @@ function makeBubble(text) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, toneMapped: false })); sp.renderOrder = 13; sp.scale.set(4.4, 4.4 * h / 520, 1); sp.center.set(0.5, 0); noRay(sp); return sp;
 }
 function makeAvatar(look, name) {
-  const root = new THREE.Group(), g = makePerson(look); root.add(g);
+  const root = new THREE.Group(), g = makePerson(look, look && look.body); root.add(g);
   const tag = makeTag(name); tag.position.y = 3.2; root.add(tag);
   return { root, g, tag, bubble: null, bubbleUntil: 0, name };
 }
 function setAvatarAnim(av, walkW, dt) {
-  const u = av.g.userData; if (!u.mixer) return; u.walkA.setEffectiveWeight(walkW); u.idleA.setEffectiveWeight(1 - walkW); u.walkA.timeScale = 1.45; u.mixer.update(dt);
+  const u = av.g.userData; if (!u.mixer) return; u.walkA.timeScale = 1.45; setAnim(u, walkW, 0, dt);
 }
 function showBubble(av, text) {
   if (av.bubble) { av.root.remove(av.bubble); av.bubble.material.map.dispose(); av.bubble.material.dispose(); }
+  if (av.g.userData.mixer) av.g.userData.waveUntil = performance.now() + 2600;
   av.bubble = makeBubble(text); av.bubble.position.y = 3.65; av.root.add(av.bubble); av.bubbleUntil = performance.now() + 6500;
 }
 function rebuildMeAvatar() {
@@ -1095,15 +1128,17 @@ function openAvatar() {
   const rows = [['skin', 'עור'], ['shirt', 'חולצה'], ['pants', 'מכנסיים'], ['hair', 'שיער'], ['shoe', 'נעליים']];
   avatarEl.innerHTML = `<div class="sheet-head"><h2 class="sheet-title" style="flex:1;align-self:center">הדמות שלי</h2><button class="close" id="av-x" aria-label="סגור">✕</button></div>
     <div class="field"><label for="av-name">שם בעיר</label><input id="av-name" type="text" maxlength="14" autocomplete="off"></div>
+    <div class="swrow"><span class="lbl">גוף</span><div class="sw" id="av-body">${['🧑', '👩', '🧢', '🙋‍♀️', '🧒', '👓'].slice(0, NBODIES).map((e, i) => `<button type="button" class="bodyb" data-b="${i}" aria-label="גוף ${i + 1}">${e}</button>`).join('')}</div></div>
     ${rows.map(([k, l]) => `<div class="swrow"><span class="lbl">${l}</span><div class="sw" data-k="${k}">${LOOKS[k].map(c => `<button type="button" class="swb" data-c="${c}" style="background:#${c.toString(16).padStart(6, '0')}" aria-label="${l}"></button>`).join('')}</div></div>`).join('')}
     <div class="btns"><button class="btn btn-ghost" id="av-rand">🎲 אקראי</button><button class="btn btn-main" id="av-ok">סיום</button></div>
     <div class="note">${net.mode === 'online' ? 'אתה מופיע לכל מי שנמצא כרגע בעיר (במצב טיול ברחוב).' : 'בינתיים אתה מופיע רק ללשוניות באותו דפדפן — מתחברים לשרת ואז כולם רואים אחד את השני.'}</div>`;
-  const paint = () => { avatarEl.querySelectorAll('.sw').forEach(sw => sw.querySelectorAll('.swb').forEach(b => b.classList.toggle('on', Number(b.dataset.c) === me.look[sw.dataset.k]))); };
+  const paint = () => { avatarEl.querySelectorAll('.bodyb').forEach(b => b.classList.toggle('on', Number(b.dataset.b) === me.look.body)); avatarEl.querySelectorAll('.sw').forEach(sw => sw.querySelectorAll('.swb').forEach(b => b.classList.toggle('on', Number(b.dataset.c) === me.look[sw.dataset.k]))); };
   $('av-name').value = me.name; paint();
   const apply = () => { saveMe(); rebuildMeAvatar(); hello(); paint(); };
   $('av-name').addEventListener('input', e => { me.name = cleanName(e.target.value) || me.name; });
   $('av-name').addEventListener('change', apply);
   avatarEl.querySelectorAll('.swb').forEach(b => b.addEventListener('click', () => { me.look[b.parentElement.dataset.k] = Number(b.dataset.c); apply(); }));
+  avatarEl.querySelectorAll('.bodyb').forEach(b => b.addEventListener('click', () => { me.look.body = Number(b.dataset.b); apply(); }));
   $('av-rand').onclick = () => { me.look = randomLook(); apply(); };
   $('av-ok').onclick = $('av-x').onclick = () => { avatarEl.hidden = true; saveMe(); hello(); };
   avatarEl.hidden = false;
@@ -1244,25 +1279,35 @@ function updateWalk(dt, now) {
   else {
     const cp = Math.cos(walk.pitch), dist = 8.5, tx = walk.pos.x, tz = walk.pos.z;
     camera.position.set(tx + Math.sin(walk.yaw) * cp * dist, Math.max(1.2, 3.1 - Math.sin(walk.pitch) * dist), tz + Math.cos(walk.yaw) * cp * dist);
-    const cr = Math.hypot(camera.position.x, camera.position.z); if (cr > 85) { camera.position.x *= 85 / cr; camera.position.z *= 85 / cr; }
+    const wz = walk.pos.z;
+    if (wz > 84 && wz < CORR_Z[1] - 4 && Math.abs(walk.pos.x) < CORR_HW + 3) camera.position.x = clamp(camera.position.x, -CORR_HW - 2, CORR_HW + 2);   // boulevard: keep camera between the buildings
+    else if (!(wz > 84 && Math.hypot(walk.pos.x - MK.cx, walk.pos.z - MK.cz) < MK.r + 8)) { const cr = Math.hypot(camera.position.x, camera.position.z); if (cr > 85) { camera.position.x *= 85 / cr; camera.position.z *= 85 / cr; } }
   }
   camera.rotation.set(walk.pitch, walk.yaw, 0, 'YXZ');
 }
 
 /* ---------- minimap ---------- */
-const mini = $('mini'), mg = mini.getContext('2d'), MINI_R = 112;
-const mw = (x, z) => { const s = mini.width / 2 - 10, k = s / MINI_R; return [mini.width / 2 + x * k, mini.height / 2 + z * k]; };
-const mUn = (px, py) => { const s = mini.width / 2 - 10, k = s / MINI_R; return new THREE.Vector3((px - mini.width / 2) / k, 0, (py - mini.height / 2) / k); };
+const mini = $('mini'), mg = mini.getContext('2d'), MC = { x: 0, z: 0, R: 112 };
+const mw = (x, z) => { const s = mini.width / 2 - 10, k = s / MC.R; return [mini.width / 2 + (x - MC.x) * k, mini.height / 2 + (z - MC.z) * k]; };
+const mUn = (px, py) => { const s = mini.width / 2 - 10, k = s / MC.R; return new THREE.Vector3((px - mini.width / 2) / k + MC.x, 0, (py - mini.height / 2) / k + MC.z); };
+const inMarketMap = () => (walk.on ? walk.pos.z : controls.target.z) > 100;
 let miniAt = 0;
 function drawMini(now) {
-  if (now - miniAt < 90) return; miniAt = now; const W = mini.width, c = W / 2;
+  if (now - miniAt < 90) return; miniAt = now; const W = mini.width, c = W / 2, mm = inMarketMap(); if (mm) { MC.x = 0; MC.z = 168; MC.R = 74; } else { MC.x = 0; MC.z = 0; MC.R = 112; }
   mg.clearRect(0, 0, W, W); mg.save(); mg.beginPath(); mg.arc(c, c, c - 2, 0, 7); mg.clip();
   mg.fillStyle = 'rgba(10,20,16,.82)'; mg.fillRect(0, 0, W, W);
-  const ringPx = (r, w, col) => { const [, ] = [0, 0]; mg.beginPath(); mg.arc(c, c, (c - 10) * r / MINI_R, 0, 7); mg.lineWidth = w; mg.strokeStyle = col; mg.stroke(); };
-  ringPx(60, (c - 10) * 20 / MINI_R, 'rgba(70,76,84,.9)'); ringPx(21, (c - 10) * 12 / MINI_R, 'rgba(150,148,130,.5)');
+  const ringPx = (r, w, col) => { const [ox, oy] = mw(0, 0); mg.beginPath(); mg.arc(ox, oy, (c - 10) * r / MC.R, 0, 7); mg.lineWidth = w; mg.strokeStyle = col; mg.stroke(); };
+  ringPx(60, (c - 10) * 20 / MC.R, 'rgba(70,76,84,.9)'); ringPx(21, (c - 10) * 12 / MC.R, 'rgba(150,148,130,.5)');
   for (const g2 of [108, 252]) { const [x, y] = mw(60 * Math.cos(deg(g2)), 60 * Math.sin(deg(g2))); mg.fillStyle = '#e8b84a'; mg.fillRect(x - 4, y - 4, 8, 8); }
-  { const [x, y] = mw(0, 100); mg.fillStyle = '#e8b84a'; mg.beginPath(); mg.arc(x, y, 9, 0, 7); mg.fill(); mg.fillStyle = '#14201b'; mg.font = '700 12px Rubik, sans-serif'; mg.textAlign = 'center'; mg.fillText('שוק', x, y + 4); }
-  mg.fillStyle = '#d23a32'; mg.beginPath(); mg.arc(c, c, 6, 0, 7); mg.fill(); mg.fillStyle = '#fff'; mg.fillRect(c - 6, c - 1, 12, 2);
+  if (mm) { // market square, boulevard, stalls
+    const [sx, sy] = mw(MK.cx, MK.cz), k = (c - 10) / MC.R;
+    mg.fillStyle = 'rgba(190,176,140,.55)'; mg.beginPath(); mg.arc(sx, sy, MK.r * k, 0, 7); mg.fill(); mg.strokeStyle = '#e8b84a'; mg.lineWidth = 3; mg.stroke();
+    const [bx0, by0] = mw(-CORR_HW, CORR_Z[0]), [bx1, by1] = mw(CORR_HW, CORR_Z[1]); mg.fillStyle = 'rgba(190,176,140,.55)'; mg.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
+    mg.fillStyle = '#d23a32'; mg.beginPath(); mg.arc(sx, sy, 5, 0, 7); mg.fill();
+    const lc = market.lotColors(); for (let kk = 0; kk < LOTS; kk++) { const sl = stallSlot(kk), [x, y] = mw(sl.x, sl.z); mg.fillStyle = lc.get(kk) || 'rgba(255,255,255,.28)'; mg.beginPath(); mg.arc(x, y, lc.has(kk) ? 5 : 3, 0, 7); mg.fill(); if (lc.has(kk)) { mg.strokeStyle = '#fff'; mg.lineWidth = 1.5; mg.stroke(); } }
+  }
+  { const [x, y] = mw(0, 100); mg.fillStyle = '#e8b84a'; mg.beginPath(); mg.arc(x, y, 10, 0, 7); mg.fill(); mg.fillStyle = '#14201b'; mg.font = '700 12px Rubik, sans-serif'; mg.textAlign = 'center'; mg.fillText(mm ? 'עיר' : 'שוק', x, y + 4); }
+  mg.fillStyle = '#d23a32'; { const [ox, oy] = mw(0, 0); mg.beginPath(); mg.arc(ox, oy, 6, 0, 7); mg.fill(); mg.fillStyle = '#fff'; mg.fillRect(ox - 6, oy - 1, 12, 2); }
   for (const b of buildingRoots) { const [x, y] = mw(b.position.x, b.position.z), q = qtyOf(b.userData.pid), n = q.units + q.cases; mg.fillStyle = n ? '#3fbe97' : (P[b.userData.pid].category === 'preorder' ? '#e8b84a' : '#9fb5ff'); mg.beginPath(); mg.arc(x, y, n ? 6 : 4.5, 0, 7); mg.fill(); if (b.userData.pid === selectedPid) { mg.strokeStyle = '#fff'; mg.lineWidth = 2; mg.stroke(); } }
   const cp = walk.on ? walk.pos : camera.position, [cx, cy] = mw(cp.x, cp.z);
   let hx, hz; if (walk.on) { hx = -Math.sin(walk.yaw); hz = -Math.cos(walk.yaw); } else { const d = controls.target.clone().sub(camera.position); hx = d.x; hz = d.z; const m = Math.hypot(hx, hz) || 1; hx /= m; hz /= m; }
@@ -1272,7 +1317,7 @@ function drawMini(now) {
 }
 mini.addEventListener('pointerdown', e => {
   const r = mini.getBoundingClientRect(), px = (e.clientX - r.left) * mini.width / r.width, py = (e.clientY - r.top) * mini.height / r.height, w = mUn(px, py);
-  { const [mx, my] = mw(0, 100); if (Math.hypot(mx - px, my - py) < 16) { goMarket(); return; } }
+  { const [mx, my] = mw(0, 100); if (Math.hypot(mx - px, my - py) < 18) { if (inMarketMap()) goCity(); else goMarket(); return; } }
   let best = null, bd = 1e9; for (const b of buildingRoots) { const [x, y] = mw(b.position.x, b.position.z), d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = b; } }
   if (best && bd < 15) { openShop(best.userData.pid); return; }
   if (walk.on) { walk.goto = clampRing(w.clone()); } else { const t = new THREE.Vector3(w.x, 0, w.z); flyTo(t, t.clone().add(new THREE.Vector3(0, 55, 62)), 900); setChips(null); }
@@ -1407,6 +1452,10 @@ function openCheckout() {
 }
 function closeCheckout() { coEl.hidden = true; }
 $('cart-fab').addEventListener('click', () => { if (coEl.hidden) { flyToView('tower', 1000); openCheckout(); } else closeCheckout(); });
+function goCity() {
+  hideHint(); sfx.pop();
+  if (walk.on) { walk.pos.set(0, EYE, 84); walk.yaw = 0; walk.pitch = -0.1; walk.goto = null; } else flyToView('overview', 1100);
+}
 function goMarket() {
   hideHint(); sfx.pop(); market.close(); closeShop(); closeCheckout();
   if (walk.on) { walk.pos.set(0, EYE, 90); walk.yaw = Math.PI; walk.pitch = -0.1; walk.goto = new THREE.Vector3(0, 0, 130); }
@@ -1467,6 +1516,10 @@ function paintSound() { $('sound').textContent = audio.on ? '🔊' : '🔇'; $('
 $('sound').addEventListener('click', e => { e.stopPropagation(); audio.on = !audio.on; try { localStorage.setItem('dr_sound', audio.on ? '1' : '0'); } catch (err) {} if (audio.on) startAudio(); else if (audio.ctx) audio.ctx.suspend(); paintSound(); });
 paintSound();
 
+/* ---------- zone toast ---------- */
+let zoneNow = 'city', toastT = 0;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3400); }
+function checkZone() { if (!walk.on) { zoneNow = 'city'; return; } const z = walk.pos.z > 98 ? 'market' : 'city'; if (z !== zoneNow) { zoneNow = z; toast(z === 'market' ? '🏪 ברוכים הבאים לרובע השוק' : '🏙️ חזרתם לעיר'); sfx.chime(); } }
 /* ---------- loop ---------- */
 let last = performance.now(), screenAt = 0;
 function loop(now) {
@@ -1495,7 +1548,7 @@ function loop(now) {
     if (u.badge.visible) u.badge.position.y = u.F.h + 6 + Math.sin(now * 0.003 + b.position.x) * 0.4;
   }
   if (marker.visible) { const p = 1 + Math.sin(now * 0.004) * 0.04; marker.userData.ring.scale.set(p, p, p); }
-  updatePeople(dt); updateMultiplayer(now, dt); updateAudio(now, dt);
+  updatePeople(dt); updateMultiplayer(now, dt); updateAudio(now, dt); checkZone();
   for (const fn of animators) fn(now, dt);
   if (gradePass) gradePass.uniforms.uBlur.value = clamp((camera.position.distanceTo(controls.target) - 40) / 120, 0, 1) * 2.6;
   if (composer) composer.render(); else renderer.render(scene, camera);

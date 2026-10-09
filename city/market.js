@@ -119,6 +119,7 @@ export function createMarket(ctx) {
   api.pads = pads; api.signs = signs;
   api.lotAt = hit => { if (hit.object !== pads && hit.object !== signs) return null; const k = hit.instanceId; return k !== undefined && !taken.has(k) ? k : -1; };
   api.occupied = () => [...taken];
+  api.lotColors = () => new Map(shops.filter(s => s.lot != null && s.lot >= 0 && s.lot < LOTS).map(s => [s.lot, s.color]));
   function syncStalls() {
     taken = new Set(shops.filter(s => s.lot != null && s.lot >= 0 && s.lot < LOTS).map(s => s.lot)); syncPads();
     const seen = new Set();
