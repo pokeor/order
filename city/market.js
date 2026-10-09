@@ -327,7 +327,9 @@ export function createMarket(ctx) {
       ${s.status !== 'approved' ? `<button class="btn btn-main sm" data-ap="${s.id}" type="button">אשר</button>` : `<button class="btn btn-ghost sm" data-su="${s.id}" type="button">השעה</button>`}
       ${s.status === 'pending' ? `<button class="btn btn-ghost sm" data-rj="${s.id}" type="button">דחה</button>` : ''}</div>`).join('');
     return `<details class="dt" open><summary>👑 ניהול חנויות (${all.length})</summary><div class="lines">${rows || '<div class="note">אין חנויות.</div>'}</div></details>
-      <details class="dt"><summary>🚩 דיווחים</summary><div class="lines" id="ad-rep"><div class="note">טוען…</div></div></details>`;
+      <details class="dt"><summary>🚩 דיווחים על חנויות</summary><div class="lines" id="ad-rep"><div class="note">טוען…</div></div></details>
+      <details class="dt"><summary>🙅 דיווחים על שחקנים</summary><div class="lines" id="ad-prep"><div class="note">טוען…</div></div></details>
+      <details class="dt"><summary>⛔ חסומים</summary><div class="lines" id="ad-ban"><div class="note">טוען…</div></div></details>`;
   }
   function wireAdmin(all) {
     const upd = async (id, patch) => { const { error } = await sb.from('shops').update(patch).eq('id', id); if (error) return msg('err', 'הפעולה נכשלה'); await refresh(); showAccount('עודכן'); };
@@ -337,6 +339,16 @@ export function createMarket(ctx) {
     });
     el.querySelectorAll('[data-su]').forEach(b => b.onclick = () => upd(b.dataset.su, { status: 'suspended', lot: null, live_url: null }));
     el.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => upd(b.dataset.rj, { status: 'rejected' }));
+    const loadPlayers = async () => {
+      const [pr, bn] = await Promise.all([sb.from('player_reports').select('id,reported_uid,reported_name,reason,evidence,created_at').order('created_at', { ascending: false }).limit(30), sb.from('banned_uids').select('uid,reason,created_at').order('created_at', { ascending: false }).limit(100)]);
+      const a = q('#ad-prep'), b = q('#ad-ban'); if (!a || !b) return; const banned = new Set((bn.data || []).map(r => r.uid));
+      a.innerHTML = (pr.data || []).length ? pr.data.map(r => `<div class="lrow"><div class="lt"><b>${esc(r.reported_name || '?')} · ${esc(r.reason)}</b><span>${esc(r.evidence || 'ללא הודעות')} · ${esc(r.reported_uid)}</span></div>${banned.has(r.reported_uid) ? '' : `<button class="btn btn-main sm" data-ban="${esc(r.reported_uid)}" data-why="${esc(r.reason)}" type="button">חסום</button>`}<button class="btn btn-ghost sm" data-dr="${esc(r.id)}" type="button">מחק</button></div>`).join('') : '<div class="note">אין דיווחים.</div>';
+      b.innerHTML = (bn.data || []).length ? bn.data.map(r => `<div class="lrow"><div class="lt"><b>${esc(r.uid)}</b><span>${esc(r.reason || '')}</span></div><button class="btn btn-ghost sm" data-unban="${esc(r.uid)}" type="button">שחרר</button></div>`).join('') : '<div class="note">אין חסומים.</div>';
+      el.querySelectorAll('[data-ban]').forEach(x => x.onclick = async () => { await sb.from('banned_uids').insert({ uid: x.dataset.ban, reason: x.dataset.why }); loadPlayers(); });
+      el.querySelectorAll('[data-unban]').forEach(x => x.onclick = async () => { await sb.from('banned_uids').delete().eq('uid', x.dataset.unban); loadPlayers(); });
+      el.querySelectorAll('[data-dr]').forEach(x => x.onclick = async () => { await sb.from('player_reports').delete().eq('id', x.dataset.dr); loadPlayers(); });
+    };
+    loadPlayers();
     sb.from('reports').select('reason,created_at,shops(name)').order('created_at', { ascending: false }).limit(20).then(({ data }) => {
       const box = q('#ad-rep'); if (!box) return;
       box.innerHTML = (data || []).length ? data.map(r => `<div class="line"><span><b>${esc(r.shops && r.shops.name || '?')}</b> — ${esc(r.reason)}</span><span>${esc(new Date(r.created_at).toLocaleDateString('he-IL'))}</span></div>`).join('') : '<div class="note">אין דיווחים.</div>';

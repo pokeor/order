@@ -15,6 +15,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createNet } from './net.js';
 import { createMarket } from './market.js';
+import { filterText, cleanDisplayName, uidOf, isBlocked, isMuted, setMuted, watchBans, remember, reportPlayer } from './moderation.js';
 
 /* ======================================================================
    עיר הפוקימון v3 — עיר עגולה.
@@ -1027,9 +1028,9 @@ const SHOES = [0xf2f2ee, 0x222222, 0xd94a4a, 0x4a7fd9, 0xe8b84a];
 const LOOKS = { skin: SKIN, shirt: SHIRTS, pants: PANTS, hair: HAIR, shoe: SHOES };
 const rpick = a => a[Math.floor(Math.random() * a.length)];
 const randomLook = () => ({ skin: rpick(SKIN), shirt: rpick(SHIRTS), pants: rpick(PANTS), hair: rpick(HAIR), shoe: rpick(SHOES), body: Math.floor(Math.random() * NBODIES) });
-const cleanName = t => String(t || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14);
+const cleanName = t => cleanDisplayName(t, '');
 const cleanLook = l => { const o = {}, ok = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff; for (const k of ['skin', 'shirt', 'pants', 'hair', 'shoe']) o[k] = l && ok(l[k]) ? l[k] : LOOKS[k][0]; o.body = l && Number.isInteger(l.body) && l.body >= 0 && l.body < 6 ? l.body : ((o.shirt ^ o.hair) >>> 0) % 6; return o; };
-const cleanText = t => String(t || '').replace(/https?:\/\/\S+|www\.\S+/gi, '[קישור]').replace(/[<>]/g, '').trim().slice(0, 100);
+const cleanText = filterText;
 const me = (() => { let sv = null; try { sv = JSON.parse(localStorage.getItem('dr_avatar') || 'null'); } catch (e) {} return { name: cleanName(sv && sv.name) || 'אורח-' + net.id.slice(0, 3).toUpperCase(), look: cleanLook(sv ? sv.look : randomLook()), av: null }; })();
 const saveMe = () => { try { localStorage.setItem('dr_avatar', JSON.stringify({ name: me.name, look: me.look })); } catch (e) {} };
 saveMe();
@@ -1055,7 +1056,8 @@ function makeBubble(text) {
 function makeAvatar(look, name) {
   const root = new THREE.Group(), g = makePerson(look, look && look.body); root.add(g);
   const tag = makeTag(name); tag.position.y = 3.2; root.add(tag);
-  return { root, g, tag, bubble: null, bubbleUntil: 0, name };
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 3.6, 8), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 1.8; root.add(hit);   // click target for mute / report
+  return { root, g, tag, hit, bubble: null, bubbleUntil: 0, name };
 }
 function setAvatarAnim(av, walkW, dt) {
   const u = av.g.userData; if (!u.mixer) return; u.walkA.timeScale = 1.45; setAnim(u, walkW, 0, dt); setLod(av.g, av.root.position.x, av.root.position.z);
@@ -1083,9 +1085,11 @@ function rebuildPeer(p) {
 function removePeer(p) { if (p.av) scene.remove(p.av.root); peers.delete(p.id); }
 const num = v => (Number.isFinite(v) ? v : 0);
 const hello = () => net.send({ t: 'hello', name: me.name, look: me.look });
+watchBans(net.sb);
 let lastHelloReply = 0;
 net.on('msg', m => {
   if (!m || m.id === net.id || typeof m.id !== 'string') return; const now = performance.now(); let p = peers.get(m.id);
+  if (isBlocked(uidOf(m.id))) { if (p) removePeer(p); return; }                 // muted by me, or banned by the owner
   if (!p && peers.size >= 40) return;                                        // flood guard: at most 40 remote avatars
   if (p) { const gap = m.t === 'chat' ? 1000 : m.t === 'hello' ? 1500 : m.t === 'state' ? 60 : 0; if (gap && now - (p.last[m.t] || 0) < gap) return; p.last[m.t] = now; }
   if (!p) { p = { id: m.id, last: {}, name: 'אורח', look: null, av: null, x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, mv: 0, seen: now, shown: false, walkW: 0, spawned: false }; peers.set(m.id, p); if (now - lastHelloReply > 3000) { lastHelloReply = now; hello(); } }
@@ -1095,7 +1099,7 @@ net.on('msg', m => {
     const cp = clampRing(new THREE.Vector3(num(m.x), 0, num(m.z))); p.tx = cp.x; p.tz = cp.z; p.tyaw = num(m.yaw); p.mv = m.mv ? 1 : 0; p.shown = !m.hide;
     if (!p.spawned) { p.x = p.tx; p.z = p.tz; p.yaw = p.tyaw; p.spawned = true; }
     if (p.av) p.av.root.visible = p.shown; else if (p.look) rebuildPeer(p);
-  } else if (m.t === 'chat') { const tx = cleanText(m.text); if (tx) { pushLog(p.name, tx); if (p.av && p.shown) showBubble(p.av, tx); } }
+  } else if (m.t === 'chat') { const tx = cleanText(m.text); if (tx && !(tx === p.lastTx && now - (p.lastTxAt || 0) < 15000)) { p.lastTx = tx; p.lastTxAt = now; remember(uidOf(p.id), tx); pushLog(p.name, tx); if (p.av && p.shown) showBubble(p.av, tx); } }
   else if (m.t === 'bye') removePeer(p);
 });
 let lastSend = 0, wasWalking = false, lastHello = 0;
@@ -1123,9 +1127,9 @@ function updateMultiplayer(now, dt) {
 }
 
 /* chat + avatar editor */
-let lastChat = 0;
+let lastChat = 0, lastSent = '';
 function sendChat() {
-  const inp = $('chat-in'), tx = cleanText(inp.value), now = performance.now(); if (!tx || now - lastChat < 1400) return; lastChat = now; inp.value = '';
+  const inp = $('chat-in'), tx = cleanText(inp.value), now = performance.now(); if (!tx || now - lastChat < 1400 || (tx === lastSent && now - lastChat < 10000)) return; lastChat = now; lastSent = tx; inp.value = '';
   net.send({ t: 'chat', text: tx }); pushLog(me.name, tx); if (walk.on) showBubble(me.av, tx);
 }
 $('chat-send').addEventListener('click', sendChat);
@@ -1136,6 +1140,7 @@ function togglePov() { walk.firstPerson = !walk.firstPerson; $('pov').setAttribu
 $('pov').addEventListener('click', togglePov);
 
 const avatarEl = $('avatar');
+const peerEl = document.createElement('section'); peerEl.className = 'sheet'; peerEl.id = 'peer'; peerEl.hidden = true; document.body.appendChild(peerEl);
 function openAvatar() {
   closeShop(); closeCheckout();
   const rows = [['skin', 'עור'], ['shirt', 'חולצה'], ['pants', 'מכנסיים'], ['hair', 'שיער'], ['shoe', 'נעליים']];
@@ -1143,6 +1148,7 @@ function openAvatar() {
     <div class="field"><label for="av-name">שם בעיר</label><input id="av-name" type="text" maxlength="14" autocomplete="off"></div>
     <div class="swrow"><span class="lbl">גוף</span><div class="sw" id="av-body">${['🧑', '👩', '🧢', '🙋‍♀️', '🧒', '👓'].slice(0, NBODIES).map((e, i) => `<button type="button" class="bodyb" data-b="${i}" aria-label="גוף ${i + 1}">${e}</button>`).join('')}</div></div>
     ${rows.map(([k, l]) => `<div class="swrow"><span class="lbl">${l}</span><div class="sw" data-k="${k}">${LOOKS[k].map(c => `<button type="button" class="swb" data-c="${c}" style="background:#${c.toString(16).padStart(6, '0')}" aria-label="${l}"></button>`).join('')}</div></div>`).join('')}
+    <div class="btns" id="av-unmute" hidden><button class="btn btn-ghost" type="button" id="av-unmute-b"></button></div>
     <div class="btns"><button class="btn btn-ghost" id="av-rand">🎲 אקראי</button><button class="btn btn-main" id="av-ok">סיום</button></div>
     <div class="note">${net.mode === 'online' ? 'אתה מופיע לכל מי שנמצא כרגע בעיר (במצב טיול ברחוב).' : 'בינתיים אתה מופיע רק ללשוניות באותו דפדפן — מתחברים לשרת ואז כולם רואים אחד את השני.'}</div>`;
   const paint = () => { avatarEl.querySelectorAll('.bodyb').forEach(b => b.classList.toggle('on', Number(b.dataset.b) === me.look.body)); avatarEl.querySelectorAll('.sw').forEach(sw => sw.querySelectorAll('.swb').forEach(b => b.classList.toggle('on', Number(b.dataset.c) === me.look[sw.dataset.k]))); };
@@ -1152,6 +1158,7 @@ function openAvatar() {
   $('av-name').addEventListener('change', apply);
   avatarEl.querySelectorAll('.swb').forEach(b => b.addEventListener('click', () => { me.look[b.parentElement.dataset.k] = Number(b.dataset.c); apply(); }));
   avatarEl.querySelectorAll('.bodyb').forEach(b => b.addEventListener('click', () => { me.look.body = Number(b.dataset.b); apply(); }));
+  { const n = JSON.parse(localStorage.getItem('dr_muted') || '[]').length; if (n) { $('av-unmute').hidden = false; $('av-unmute-b').textContent = `🔊 ביטול ${n} השתקות`; $('av-unmute-b').onclick = () => { try { JSON.parse(localStorage.getItem('dr_muted') || '[]').forEach(u => setMuted(u, false)); } catch (e) {} $('av-unmute').hidden = true; toast('ההשתקות בוטלו'); }; } }
   $('av-rand').onclick = () => { me.look = randomLook(); apply(); };
   $('av-ok').onclick = $('av-x').onclick = () => { avatarEl.hidden = true; saveMe(); hello(); };
   avatarEl.hidden = false;
@@ -1336,6 +1343,26 @@ mini.addEventListener('pointerdown', e => {
   if (walk.on) { walk.goto = clampRing(w.clone()); } else { const t = new THREE.Vector3(w.x, 0, w.z); flyTo(t, t.clone().add(new THREE.Vector3(0, 55, 62)), 900); setChips(null); }
 });
 
+/* ---------- other players: mute / report ---------- */
+function pickPeer(ev) {
+  const hits = []; for (const q of peers.values()) if (q.av && q.av.root.visible) { q.av.hit.userData.peerId = q.id; hits.push(q.av.hit); }
+  if (!hits.length) return null; setNdc(ev); const h = ray.intersectObjects(hits, false)[0]; return h ? h.object.userData.peerId : null;
+}
+function openPeer(id) {
+  const p = peers.get(id); if (!p) return; const uid = uidOf(id); closeShop(); closeCheckout(); market.close(); avatarEl.hidden = true;
+  peerEl.innerHTML = `<div class="sheet-head"><h2 class="sheet-title" id="pr-name" style="flex:1;align-self:center"></h2><button class="close" id="pr-x" aria-label="סגור">✕</button></div>
+    <div class="btns"><button class="btn btn-ghost" id="pr-mute" type="button"></button><button class="btn btn-ghost" id="pr-rep" type="button">🚩 דיווח למנהל</button></div>
+    <div class="btns" id="pr-reasons" hidden></div><div class="msg" id="pr-msg"></div>`;
+  $('pr-name').textContent = p.name; $('pr-mute').textContent = isMuted(uid) ? '🔊 ביטול השתקה' : '🔇 השתקה (הדמות וההודעות שלו נעלמים)';
+  const say = (cls, t) => { const m = $('pr-msg'); m.className = 'msg show ' + cls; m.textContent = t; };
+  $('pr-x').onclick = () => { peerEl.hidden = true; };
+  $('pr-mute').onclick = () => { setMuted(uid, !isMuted(uid)); if (isMuted(uid)) removePeer(p); peerEl.hidden = true; toast(isMuted(uid) ? '🔇 המשתמש הושתק' : '🔊 ההשתקה בוטלה'); };
+  $('pr-rep').onclick = () => { const box = $('pr-reasons'); box.hidden = !box.hidden; if (box.children.length) return;
+    for (const r of ['קללות או הטרדה', 'ספאם או פרסום', 'התחזות', 'אחר']) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost sm'; b.textContent = r;
+      b.onclick = async () => { const res = await reportPlayer(net.sb, { uid, name: p.name, reason: r }); if (!res.error) { setMuted(uid, true); removePeer(p); peerEl.hidden = true; toast('🚩 הדיווח נשלח וההשתקה הופעלה'); } else say('err', res.error === 'rate' ? 'אפשר לשלוח דיווח אחד כל חצי דקה' : 'לא הצלחנו לשלוח, נסו שוב'); };
+      box.appendChild(b); } };
+  peerEl.hidden = false;
+}
 /* ---------- picking ---------- */
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 function setNdc(ev) { const r = canvas.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
@@ -1353,6 +1380,7 @@ canvas.addEventListener('wheel', e => { if (tween && !tween.onDone) { tween = nu
 canvas.addEventListener('pointerup', e => {
   if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null; lastPtr = null;
   if (moved < 8 && dt < 500) {
+    const peerId = pickPeer(e); if (peerId) { openPeer(peerId); return; }
     const pid = pickAt(e);
     if (pid === 'tower') { closeShop(); flyToView('tower', 900); openCheckout(); }
     else if (pid && pid.startsWith('shop:')) market.openShop(pid.slice(5));
@@ -1411,7 +1439,7 @@ function openShop(pid) {
   $('shop-x').onclick = $('shop-more').onclick = closeShop; $('shop-cart').onclick = () => { flyToView('tower', 1000); openCheckout(); };
   shopEl.hidden = false;
 }
-function closeShop() { shopEl.hidden = true; selectBuilding(null); }
+function closeShop() { shopEl.hidden = true; peerEl.hidden = true; selectBuilding(null); }
 
 /* ---------- UI: checkout ---------- */
 const HEAD = { preorder: 'הזמנה מוקדמת – דלתא ריין', instock: 'זמין במלאי' };
@@ -1568,4 +1596,4 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 requestAnimationFrame(() => requestAnimationFrame(() => { $('bar').style.width = '100%'; setTimeout(() => $('loading').classList.add('gone'), 250); }));
-if (new URLSearchParams(location.search).has('debug')) window.cityDebug = { walk, market, net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };
+if (new URLSearchParams(location.search).has('debug')) window.cityDebug = { openPeer, walk, market, net, peers, me, THREE, scene, camera, controls, openShop, buildings, flyToView, cart, setQty, people, renderer };

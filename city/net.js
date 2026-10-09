@@ -8,9 +8,13 @@ export async function createNet() {
   const handlers = {};
   const okMsg = m => m && typeof m === 'object' && !Array.isArray(m) && typeof m.id === 'string' && /^[\w-]{6,40}$/.test(m.id) && typeof m.t === 'string' && m.t.length < 12 && JSON.stringify(m).length < 1500;
   const emit = (k, v) => (handlers[k] || []).forEach(f => { try { f(v); } catch (e) { console.warn('handler failed', k); } });
-  let id = null;
-  try { id = sessionStorage.getItem('dr_pid'); } catch (e) {}
-  if (!/^[\w-]{6,40}$/.test(id || '')) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).slice(0, 12); try { sessionStorage.setItem('dr_pid', id); } catch (e) {} }
+  const rnd = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
+  let uid = null, sess = null;                 // uid: stable per browser (bans/mutes key on it), sess: per tab so two tabs don't collide
+  try { uid = localStorage.getItem('dr_uid'); } catch (e) {}
+  if (!/^[a-z0-9]{12}$/.test(uid || '')) { uid = rnd(12); try { localStorage.setItem('dr_uid', uid); } catch (e) {} }
+  try { sess = sessionStorage.getItem('dr_sess'); } catch (e) {}
+  if (!/^[a-z0-9]{4}$/.test(sess || '')) { sess = rnd(4); try { sessionStorage.setItem('dr_sess', sess); } catch (e) {} }
+  const id = uid + '_' + sess;
   const emitMsg = m => { if (okMsg(m)) emit('msg', m); };
   const api = { id, mode: 'local', on(k, f) { (handlers[k] = handlers[k] || []).push(f); }, send: () => {} };
 
