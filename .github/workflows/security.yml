@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: pip install semgrep
       - run: semgrep scan --config p/javascript --config p/owasp-top-ten --severity ERROR --error --exclude city/vendor --exclude vendor city index.html
