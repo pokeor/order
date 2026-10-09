@@ -1,0 +1,7 @@
+title = "pokeor"
+[extend]
+useDefault = true
+[allowlist]
+description = "Supabase publishable key is public by design; vendored third-party bundles are minified and checksummed separately"
+paths = ['''^city/vendor/''', '''^vendor/''']
+regexes = ['''sb_publishable_[A-Za-z0-9_\-]{20,}''']
