@@ -512,7 +512,7 @@ function makeForecourt(def, T) {
   return g;
 }
 const gltfLoader = new GLTFLoader();
-{ const d = new DRACOLoader(); d.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'); gltfLoader.setDRACOLoader(d); }
+{ const d = new DRACOLoader(); d.setDecoderPath('./vendor/draco/'); gltfLoader.setDRACOLoader(d); }
 const bTex = { roofN: pbrTex('clay_roof_tiles_nor_gl.jpg', 1), roofR: pbrTex('clay_roof_tiles_rough.jpg', 1), wallN: pbrTex('white_stucco_nor_gl.jpg', 1), wallR: pbrTex('white_stucco_rough.jpg', 1) };
 /* merge a loaded building into 5 draw calls: opaque (vertex colours), roof, accent, ball, glass */
 const uberOpaque = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0.02, normalMap: bTex.wallN, roughnessMap: bTex.wallR, normalScale: new THREE.Vector2(0.7, 0.7) });

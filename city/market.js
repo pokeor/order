@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { hasBad } from './moderation.js';
 
 /* Market: user shops on the park ring. Needs the Supabase client from net.js (net.sb).
    Visitors: browse approved shops, order through the seller's WhatsApp (no payment on site).
@@ -263,7 +264,7 @@ export function createMarket(ctx) {
     wireSwatches();
     q('#sh-create').onclick = async () => {
       const name = q('#sh-name').value.trim(), tagline = q('#sh-tag').value.trim(), whatsapp = normPhone(q('#sh-wa').value);
-      if (name.length < 2) return msg('err', 'שם החנות קצר מדי'); if (!/^\d{9,15}$/.test(whatsapp)) return msg('err', 'מספר וואטסאפ לא תקין');
+      if (name.length < 2) return msg('err', 'שם החנות קצר מדי'); if (!/^\d{9,15}$/.test(whatsapp)) return msg('err', 'מספר וואטסאפ לא תקין'); if (hasBad(name + ' ' + (q('#sh-tag').value || ''))) return msg('err', 'השם או המשפט כוללים מילים לא מתאימות');
       const { error } = await sb.from('shops').insert({ owner: user.id, name, tagline: tagline || null, whatsapp, color: pickColor() });
       if (error) return msg('err', 'לא הצלחנו ליצור את החנות'); showAccount('הבקשה נשלחה! נחזור אליך אחרי אישור.');
     };
@@ -272,7 +273,7 @@ export function createMarket(ctx) {
     return `<div class="stat st-${esc(s.status)}"><b>${esc(s.name)}</b> · ${esc(STATUS[s.status] || s.status)}${s.status === 'approved' && s.lot != null ? ` · דוכן ${s.lot + 1}` : ''}</div>
       ${s.status === 'pending' ? '<div class="note">הבקשה ממתינה לאישור. אפשר כבר להוסיף מוצרים.</div>' : ''}
       ${s.status === 'rejected' || s.status === 'suspended' ? '<div class="note">החנות לא מוצגת בעיר כרגע. אפשר לפנות לבעל העיר.</div>' : ''}
-      <details class="dt"><summary>פרטי החנות</summary>
+      <details class="dt"><summary>פרטי החנות</summary><div class="note">שינוי שם או משפט מחזיר את החנות לאישור מחדש.</div>
         <div class="field"><label for="sh-name">שם החנות</label><input id="sh-name" maxlength="28" value="${esc(s.name)}"></div>
         <div class="field"><label for="sh-tag">משפט קצר</label><input id="sh-tag" maxlength="60" value="${esc(s.tagline || '')}"></div>
         <div class="field"><label for="sh-wa">וואטסאפ להזמנות</label><input id="sh-wa" type="tel" inputmode="tel" value="${esc(s.whatsapp)}"></div>
@@ -291,7 +292,7 @@ export function createMarket(ctx) {
     wireSwatches();
     q('#sh-save').onclick = async () => {
       const name = q('#sh-name').value.trim(), whatsapp = normPhone(q('#sh-wa').value);
-      if (name.length < 2) return msg('err', 'שם החנות קצר מדי'); if (!/^\d{9,15}$/.test(whatsapp)) return msg('err', 'מספר וואטסאפ לא תקין');
+      if (name.length < 2) return msg('err', 'שם החנות קצר מדי'); if (!/^\d{9,15}$/.test(whatsapp)) return msg('err', 'מספר וואטסאפ לא תקין'); if (hasBad(name + ' ' + (q('#sh-tag').value || ''))) return msg('err', 'השם או המשפט כוללים מילים לא מתאימות');
       const { error } = await sb.from('shops').update({ name, tagline: q('#sh-tag').value.trim() || null, whatsapp, color: pickColor() }).eq('id', s.id);
       if (error) return msg('err', 'השמירה נכשלה'); await refresh(); msg('ok', 'נשמר');
     };
@@ -311,7 +312,7 @@ export function createMarket(ctx) {
     renderList();
     q('#ls-add').onclick = async () => {
       const title = q('#ls-title').value.trim(), price = Math.round(+q('#ls-price').value);
-      if (title.length < 2) return msg('err', 'כתבו שם מוצר'); if (!(price >= 0) || price > 1000000) return msg('err', 'מחיר לא תקין');
+      if (title.length < 2) return msg('err', 'כתבו שם מוצר'); if (hasBad(title)) return msg('err', 'שם המוצר כולל מילים לא מתאימות'); if (!(price >= 0) || price > 1000000) return msg('err', 'מחיר לא תקין');
       const btn = q('#ls-add'); btn.disabled = true; let image_url = null; const f = q('#ls-img').files[0];
       try {
         if (f) { const blob = await resizeImage(f), path = `${user.id}/${crypto.randomUUID()}.jpg`, up = await sb.storage.from('listings').upload(path, blob, { contentType: 'image/jpeg' }); if (up.error) throw up.error; image_url = sb.storage.from('listings').getPublicUrl(path).data.publicUrl; }

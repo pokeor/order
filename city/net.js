@@ -4,6 +4,12 @@ import { CONFIG } from './config.js';
    online  -> Supabase Realtime broadcast channel (everyone in the city)
    local   -> BroadcastChannel (other tabs of the same browser) - used when config.js is empty,
               so multiplayer can be tried without any backend. */
+// self-hosted supabase-js 2.45.4 (UMD build) - no third-party code is executed from a CDN
+const loadSupabase = () => new Promise((res, rej) => {
+  if (window.supabase) return res(window.supabase);
+  const s = document.createElement('script'); s.src = new URL('./vendor/supabase/supabase.js', import.meta.url).href;
+  s.onload = () => (window.supabase ? res(window.supabase) : rej(new Error('supabase global missing'))); s.onerror = () => rej(new Error('supabase failed to load')); document.head.appendChild(s);
+});
 export async function createNet() {
   const handlers = {};
   const okMsg = m => m && typeof m === 'object' && !Array.isArray(m) && typeof m.id === 'string' && /^[\w-]{6,40}$/.test(m.id) && typeof m.t === 'string' && m.t.length < 12 && JSON.stringify(m).length < 1500;
@@ -28,7 +34,7 @@ export async function createNet() {
 
   if (CONFIG.supabaseUrl && CONFIG.supabaseKey) {
     try {
-      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
+      const { createClient } = await loadSupabase();
       const sb = createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, { realtime: { params: { eventsPerSecond: 14 } } });
       const ch = sb.channel('city-main', { config: { broadcast: { self: false } } });
       ch.on('broadcast', { event: 'msg' }, ({ payload }) => emitMsg(payload));

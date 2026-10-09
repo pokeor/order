@@ -1,0 +1,33 @@
+name: security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: '23 5 * * 1' }]   # weekly, Monday 05:23 UTC
+permissions: { contents: read }
+jobs:
+  vendor-integrity:        # self-hosted third-party code must match the pinned checksums
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shasum -a 256 -c vendor.sha256
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --no-banner --redact
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install semgrep
+      - run: semgrep scan --config p/javascript --config p/owasp-top-ten --severity ERROR --error --exclude city/vendor --exclude vendor city index.html
+  dast:                    # live-site baseline scan, weekly only
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: zaproxy/action-baseline@v0.12.0
+        with: { target: 'https://pokeor.github.io/order/city/', allow_issue_writing: false, cmd_options: '-a' }

@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-z/AoA4zSKX74MReD7h2Lm4HTnCxzMmTsnIO+K7TDFm4=' 'sha256-sXWZtfJ6C/B218NLPOnZ87YR9LdJFaOkMqQquqsH2jU=' https://cdn.jsdelivr.net https://www.gstatic.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://igzdifwywtgctiihclae.supabase.co; connect-src 'self' https://igzdifwywtgctiihclae.supabase.co wss://igzdifwywtgctiihclae.supabase.co https://cdn.jsdelivr.net https://www.gstatic.com; worker-src blob:; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.twitch.tv; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-z/AoA4zSKX74MReD7h2Lm4HTnCxzMmTsnIO+K7TDFm4=' 'sha256-CCG8uL4+eqdnWv58X0gtyivUPcLdZu8ZGPw2D0nV94Q=' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://igzdifwywtgctiihclae.supabase.co; connect-src 'self' https://igzdifwywtgctiihclae.supabase.co wss://igzdifwywtgctiihclae.supabase.co; worker-src blob:; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.twitch.tv; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>if(top!==self){try{top.location=self.location}catch(e){document.documentElement.style.display="none"}}</script>
 <title>עיר הפוקימון</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="./vendor/fonts/fonts.css">
 <style>
   :root{
     --bg:#0c1512; --panel:#14201b; --panel-2:#1b2b24; --ink:#eef2e9; --ink-soft:#a3b3a6;
@@ -146,8 +146,8 @@
 </style>
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/examples/jsm/"
 } }
 </script>
 </head>
@@ -190,6 +190,6 @@
   <a href="../">לטופס ההזמנה</a>
 </div>
 
-<script type="module" src="./city.js?v=20261009f"></script>
+<script type="module" src="./city.js?v=20261009h"></script>
 </body>
 </html>
