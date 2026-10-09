@@ -27,7 +27,7 @@ def sph(bm, c, r, seg=10, rings=7):
 def box(bm, c, s, rot=None):
     m = Matrix.Translation(c) @ (rot.to_4x4() if rot else Matrix.Identity(4)) @ Matrix.Diagonal((s[0], s[1], s[2], 1))
     bmesh.ops.create_cube(bm, size=1.0, matrix=m)
-def tube(bm, rings, seg=10, caps=(True, True)):
+def tube(bm, rings, seg=10, caps=(False, False)):
     loops = []
     for (cx, cy, cz, rx, ry) in rings:
         loops.append([bm.verts.new((cx + rx * math.cos(2 * math.pi * i / seg), cy + ry * math.sin(2 * math.pi * i / seg), cz)) for i in range(seg)])
@@ -81,11 +81,14 @@ def sleeve_rings(x, ez, B):
     return r + ([(x, 0, ez, .068 * B, .068 * B)] if ez >= 1.0 else [(x, 0, 1.05, .064 * B, .064 * B), (x, 0, ez, .06 * B, .06 * B)])
 
 # ------------------------------------------------------------------ one variant
-def build(i, sp):
-    arm = make_rig(str(i)); parts = []
+HARD = ('mouth', 'brows', 'pack', 'straps', 'pocket', 'zip', 'sole', 'glasses', 'bag', 'strap', 'scarfT', 'skirt', 'belt', 'buckle', 'lace', 'logo', 'draw', 'lash', 'fing')
+def build_mesh(i, sp, arm, HI):
+    parts = []; tag = str(i) + ('h' if HI else 'l')
+    def hip(*a, **k):
+        if HI: part(*a, **k)
     def part(name, matname, wfn, builder, smooth=True):
-        bm = bmesh.new(); builder(bm); me = bpy.data.meshes.new(name + str(i)); bm.to_mesh(me); bm.free()
-        ob = bpy.data.objects.new(name + str(i), me); ob.data.materials.append(MATS[matname]); bpy.context.collection.objects.link(ob)
+        bm = bmesh.new(); builder(bm); me = bpy.data.meshes.new(name + tag); bm.to_mesh(me); bm.free(); me.validate()
+        ob = bpy.data.objects.new(name + tag, me); ob.data.materials.append(MATS[matname]); bpy.context.collection.objects.link(ob)
         groups = {}
         for v in me.vertices:
             for b, w in wfn(v.co).items():
@@ -93,12 +96,12 @@ def build(i, sp):
                 if b not in groups: groups[b] = ob.vertex_groups.new(name=b)
                 groups[b].add([v.index], w, 'REPLACE')
         for p in me.polygons: p.use_smooth = smooth
-        parts.append(ob)
+        parts.append((ob, not name.startswith(HARD)))
     B = sp.get('bulk', 1.0); HS = sp.get('head', 1.0)
     # torso (shirt) + pelvis + neck
-    part('torso', 'Shirt', SPINE_HIPS, lambda bm: tube(bm, [(0, 0, 0.9, .185 * B, .115 * B), (0, 0, 0.98, .175 * B, .113 * B), (0, 0, 1.12, .185 * B, .12 * B), (0, 0, 1.26, .225 * B, .135 * B), (0, 0, 1.37, .235 * B, .125 * B), (0, 0, 1.43, .09, .08)], 12))
+    part('torso', 'Shirt', SPINE_HIPS, lambda bm: tube(bm, [(0, 0, 0.9, .185 * B, .115 * B), (0, 0, 0.98, .175 * B, .113 * B), (0, 0, 1.12, .185 * B, .12 * B), (0, 0, 1.26, .225 * B, .135 * B), (0, 0, 1.37, .235 * B, .125 * B), (0, 0, 1.43, .09, .08)], 12, (True, True)))
     if sp['bottom'] != 'skirt':
-        part('pelvis', 'Pants', SPINE_HIPS, lambda bm: tube(bm, [(0, 0, 0.74, .17 * B, .115 * B), (0, 0, 0.86, .185 * B, .12 * B), (0, 0, 0.96, .182 * B, .118 * B)], 12))
+        part('pelvis', 'Pants', SPINE_HIPS, lambda bm: tube(bm, [(0, 0, 0.74, .17 * B, .115 * B), (0, 0, 0.86, .185 * B, .12 * B), (0, 0, 0.96, .182 * B, .118 * B)], 12, (True, True)))
     part('neck', 'Skin', NECK, lambda bm: tube(bm, [(0, 0, 1.36, .052, .052), (0, 0, 1.52, .048, .048)], 8))
     # head + face
     hc = (0, 0, 1.6)
@@ -151,7 +154,7 @@ def build(i, sp):
     # skirt / dress
     if sp['bottom'] == 'skirt':
         def skirtW(co):
-            t = clamp((0.92 - co.z) / 0.36) * 0.55; b = 'UpperLegL' if co.x > 0 else 'UpperLegR'; return {'Hips': 1 - t, b: t}
+            t = clamp((0.92 - co.z) / 0.36) * 0.8; b = 'UpperLegL' if co.x > 0 else 'UpperLegR'; return {'Hips': 1 - t, b: t}
         part('skirt', 'Pants' if sp['top'] != 'dress' else 'Shirt', skirtW, lambda bm: tube(bm, [(0, 0, .98, .185 * B, .122 * B), (0, 0, .86, .215 * B, .15 * B), (0, 0, .66, .29 * B, .21 * B), (0, 0, .56, .31 * B, .225 * B)], 14))
     # top details
     t = sp['top']
@@ -175,13 +178,37 @@ def build(i, sp):
         if a == 'bag':
             part('bag', 'Accent', fixed('Hips'), lambda bm: box(bm, (-.3 * B, .02, .93), (.07, .2, .17)))
             part('strap', 'Accent', fixed('Spine'), lambda bm: between(bm, (.19 * B, -.147, 1.37), (-.26 * B, -.142, 1.0), .014))
-    # join + skin
-    bpy.ops.object.select_all(action='DESELECT')
-    for o in parts: o.select_set(True)
-    bpy.context.view_layer.objects.active = parts[0]; bpy.ops.object.join()
-    body = bpy.context.view_layer.objects.active; body.name = 'Person'
+    if HI:  # extra detail only the close-up mesh carries
+        for sd, x in (('L', 0.27), ('R', -0.27)):
+            for k, off in enumerate((-.024, -.008, .008, .024)):
+                hip('fing' + sd + str(k), 'Skin', fixed('LowerArm' + sd), lambda bm, x=x, off=off: tube(bm, [(x + off, -.004, .685, .0105, .0105), (x + off, -.011, .625, .0092, .0092), (x + off, -.014, .575, .0075, .0075)], 6))
+        for sd, x in (('L', 0.11), ('R', -0.11)):
+            hip('lace' + sd, 'Eye', fixed('LowerLeg' + sd), lambda bm, x=x: [box(bm, (x, -.085 + dy, .127), (.07, .012, .008)) for dy in (0, .028, .056)])
+        if sp['bottom'] != 'skirt' and sp['top'] != 'dress':
+            hip('belt', 'Accent', SPINE_HIPS, lambda bm: tube(bm, [(0, 0, .945, .19 * B, .125 * B), (0, 0, .985, .19 * B, .125 * B)], 12, (False, False)))
+            hip('buckle', 'Eye', SPINE_HIPS, lambda bm: box(bm, (0, -.127 * B, .965), (.045, .012, .032)))
+        hip('lash', 'Pupil', fixed('Head'), lambda bm: [box(bm, (sx * .06 * HS, -.152 * HS, 1.654), (.042, .006, .006)) for sx in (-1, 1)])
+        if sp['top'] == 'hoodie':
+            hip('draw', 'Eye', SPINE_HIPS, lambda bm: [between(bm, (sx * .03, -.116, 1.4), (sx * .034, -.12, 1.24), .006) for sx in (-1, 1)])
+        if sp['top'] == 'tee':
+            hip('logo', 'Accent', SPINE_HIPS, lambda bm: sph(bm, (-.075 * B, -.131 * B, 1.28), (.04, .008, .04), 8, 5))
+    soft = [o for o, sf in parts if sf]; hard = [o for o, sf in parts if not sf]
+    def join(objs):
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in objs: o.select_set(True)
+        bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join(); return bpy.context.view_layer.objects.active
+    if HI:
+        sm = join(soft); m = sm.modifiers.new('Sub', 'SUBSURF'); m.levels = 1; m.render_levels = 1; m.boundary_smooth = 'PRESERVE_CORNERS'
+        bpy.context.view_layer.objects.active = sm; bpy.ops.object.modifier_apply(modifier='Sub')
+        body = join([sm] + hard)
+    else:
+        body = join([o for o, _ in parts])
+    body.name = 'PersonHi' if HI else 'PersonLo'
     mod = body.modifiers.new('Armature', 'ARMATURE'); mod.object = arm; body.parent = arm
-    return arm, body
+    return body
+def build(i, sp):
+    arm = make_rig(str(i)); lo = build_mesh(i, sp, arm, False); hi = build_mesh(i, sp, arm, True)
+    return arm, lo, hi
 
 # ------------------------------------------------------------------ animation
 def animate(arm):
@@ -254,15 +281,15 @@ VARIANTS = [
 ]
 built = []
 for i, sp in enumerate(VARIANTS):
-    arm, body = build(i, sp); animate(arm)
-    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True); body.select_set(True); bpy.context.view_layer.objects.active = arm
+    arm, lo, hi = build(i, sp); animate(arm)
+    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True); lo.select_set(True); hi.select_set(True); bpy.context.view_layer.objects.active = arm
     f = os.path.join(OUT, f'person_v{i}.glb')
     bpy.ops.export_scene.gltf(filepath=f, export_format='GLB', use_selection=True, export_apply=False, export_yup=True,
-                              export_animations=True, export_animation_mode='ACTIONS', export_skins=True, export_cameras=False, export_lights=False, export_extras=False)
-    tris = sum(len(p.vertices) - 2 for p in body.data.polygons)
-    print('EXPORTED', f, 'tris', tris)
+                              export_animations=True, export_animation_mode='ACTIONS', export_skins=True, export_cameras=False, export_lights=False, export_extras=False,
+                              export_draco_mesh_compression_enable=True, export_draco_position_quantization=14, export_draco_normal_quantization=10)
+    print('EXPORTED', f, 'tris lo', sum(len(p.vertices) - 2 for p in lo.data.polygons), 'hi', sum(len(p.vertices) - 2 for p in hi.data.polygons), 'bytes', os.path.getsize(f))
     for a in list(bpy.data.actions): bpy.data.actions.remove(a)
-    static_pose(arm); arm.location.x = (i - 2.5) * 0.95; built.append(arm)
+    static_pose(arm); lo.hide_render = True; lo.hide_viewport = True; arm.location.x = (i - 2.5) * 0.95; built.append(arm)
 json.dump({'variants': [{'file': f'person_v{i}.glb', 'scale': sp['scale']} for i, sp in enumerate(VARIANTS)]}, open(os.path.join(OUT, 'people.json'), 'w'))
 
 if PNG:

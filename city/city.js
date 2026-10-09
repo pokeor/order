@@ -25,7 +25,7 @@ import { createMarket } from './market.js';
    ====================================================================== */
 
 const WHATSAPP = '972522123345';
-const MV = '?v=20261007b';
+const MV = '?v=20261009a';
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('he-IL');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -877,19 +877,23 @@ function tinted(geo, color) {
 }
 const PERSON_KEYS = ['Skin', 'Shirt', 'Pants', 'Hair', 'Shoe', 'Accent', 'Eye', 'Pupil', 'Lip'];
 const ACCENTS = [0xe8b84a, 0xd94a4a, 0x3fbe97, 0xf2f2ee, 0x9a5ad9, 0x4a7fd9];
-function mergePerson(gltf) { // one skinned mesh per person (1 draw call): primitives merged, material id kept per vertex
-  const geos = [], olds = []; let first = null, parent = null;
-  gltf.scene.traverse(o => { if (o.isSkinnedMesh) { first = first || o; parent = parent || o.parent; olds.push(o); } });
-  for (const o of olds) {
-    const g = o.geometry.clone(), n = g.attributes.position.count;
-    if (!g.attributes.normal) g.computeVertexNormals();
-    if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(k)) g.deleteAttribute(k);
-    g.setAttribute('mid', new THREE.BufferAttribute(new Float32Array(n).fill(Math.max(0, PERSON_KEYS.indexOf(o.material.name.replace(/\.\d+$/, '')))), 1)); geos.push(g);
+function mergePerson(gltf) { // per LOD (PersonLo / PersonHi): one skinned mesh per person (1 draw call), material id kept per vertex
+  const groups = { lo: [], hi: [] };
+  gltf.scene.traverse(o => { if (!o.isSkinnedMesh) return; let a = o, hi = false; while (a) { if (/PersonHi/.test(a.name)) { hi = true; break; } a = a.parent; } groups[hi ? 'hi' : 'lo'].push(o); });
+  for (const olds of Object.values(groups)) {
+    if (!olds.length) continue; const geos = [], first = olds[0], parent = first.parent;
+    for (const o of olds) {
+      const g = o.geometry.clone(), n = g.attributes.position.count;
+      if (!g.attributes.normal) g.computeVertexNormals();
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(k)) g.deleteAttribute(k);
+      g.setAttribute('mid', new THREE.BufferAttribute(new Float32Array(n).fill(Math.max(0, PERSON_KEYS.indexOf(o.material.name.replace(/\.\d+$/, '')))), 1)); geos.push(g);
+    }
+    const merged = new THREE.SkinnedMesh(mergeGeometries(geos, false), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }));
+    merged.name = olds === groups.hi ? 'PersonHi' : 'PersonLo';
+    for (const o of olds) o.parent.remove(o);
+    parent.add(merged); merged.bind(first.skeleton, first.bindMatrix); merged.frustumCulled = false;
   }
-  const merged = new THREE.SkinnedMesh(mergeGeometries(geos, false), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }));
-  for (const o of olds) o.parent.remove(o);
-  parent.add(merged); merged.bind(first.skeleton, first.bindMatrix); merged.frustumCulled = false;
 }
 const personVariants = [];
 {
@@ -914,7 +918,13 @@ function makePerson(look, vi) {
   const walkA = act('Walk'), idleA = act('Idle'), waveA = act('Wave'), browseA = act('Browse');
   for (const a of [walkA, idleA, waveA, browseA]) { a.play(); a.time = Math.random() * a.getClip().duration; }
   waveA.setEffectiveWeight(0); browseA.setEffectiveWeight(0);
-  g.scale.setScalar(1.5 * V.scale); g.userData = { mixer, walkA, idleA, waveA, browseA, body, wv: 0, waveUntil: 0 }; g.traverse(noRay); return g;
+  let lo = null, hi = null; root.traverse(o => { if (o.isSkinnedMesh) { if (o.name === 'PersonHi') hi = o; else lo = o; } });
+  g.scale.setScalar(1.5 * V.scale); g.userData = { mixer, walkA, idleA, waveA, browseA, body, wv: 0, waveUntil: 0, lo, hi, near: null }; g.traverse(noRay); return g;
+}
+const LOD_D2 = 38 * 38;
+function setLod(g, x, z) { // close-up mesh near the camera, light one far away
+  const u = g.userData; if (!u.hi || !u.lo) return; const dx = camera.position.x - x, dz = camera.position.z - z, near = dx * dx + dz * dz < LOD_D2 && camera.position.y < 70;
+  if (near === u.near) return; u.near = near; u.hi.visible = near; u.lo.visible = !near; u.hi.castShadow = HI && near; u.lo.castShadow = HI && !near;
 }
 function setAnim(u, walkW, brW, dt) { // blend Walk / Idle / Browse / Wave
   const now = performance.now(), rest = 1 - walkW; u.wv += ((now < u.waveUntil ? 1 : 0) - u.wv) * Math.min(1, dt * 7);
@@ -1002,7 +1012,7 @@ function updatePeople(dt) {
     }
     const u = p.g.userData;
     if (u.mixer) {
-      p.br = (p.br || 0) + (((p.wait > 0 && p.face !== undefined) ? 1 : 0) - (p.br || 0)) * Math.min(1, dt * 4); u.walkA.timeScale = p.speed / 2.0; setAnim(u, p.walk, p.br, dt);
+      p.br = (p.br || 0) + (((p.wait > 0 && p.face !== undefined) ? 1 : 0) - (p.br || 0)) * Math.min(1, dt * 4); u.walkA.timeScale = p.speed / 2.0; setAnim(u, p.walk, p.br, dt); setLod(p.g, p.pos.x, p.pos.z);
       p.g.position.set(p.pos.x, 0, p.pos.z); p.g.rotation.y = p.rot; continue;
     }
     const sw = Math.sin(p.phase) * 0.75 * p.walk;
@@ -1048,7 +1058,7 @@ function makeAvatar(look, name) {
   return { root, g, tag, bubble: null, bubbleUntil: 0, name };
 }
 function setAvatarAnim(av, walkW, dt) {
-  const u = av.g.userData; if (!u.mixer) return; u.walkA.timeScale = 1.45; setAnim(u, walkW, 0, dt);
+  const u = av.g.userData; if (!u.mixer) return; u.walkA.timeScale = 1.45; setAnim(u, walkW, 0, dt); setLod(av.g, av.root.position.x, av.root.position.z);
 }
 function showBubble(av, text) {
   if (av.bubble) { av.root.remove(av.bubble); av.bubble.material.map.dispose(); av.bubble.material.dispose(); }
