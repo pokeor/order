@@ -29,5 +29,5 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read }
     steps:
-      - uses: zaproxy/action-baseline@v0.12.0
+      - uses: zaproxy/action-baseline@v0.15.0
         with: { target: 'https://pokeor.github.io/order/city/', allow_issue_writing: false, cmd_options: '-a' }
