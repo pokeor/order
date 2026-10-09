@@ -1,0 +1,5 @@
+Contact: https://github.com/pokeor/order/security/advisories/new
+Expires: 2027-10-09T00:00:00.000Z
+Preferred-Languages: he, en
+Canonical: https://pokeor.github.io/order/.well-known/security.txt
+Policy: https://github.com/pokeor/order/blob/main/.github/SECURITY.md
